@@ -1258,6 +1258,7 @@ let init_libs ~options ~profiling ~local_errors ~warnings ~suppressions ~reader 
             errors = lib_errors;
             warnings = lib_warnings;
             suppressions = lib_suppressions;
+            exports;
           } =
         Init_js.init ~options ~reader ordered_libs
       in
@@ -1265,7 +1266,8 @@ let init_libs ~options ~profiling ~local_errors ~warnings ~suppressions ~reader 
         ( ok,
           FilenameMap.union lib_errors local_errors,
           FilenameMap.union lib_warnings warnings,
-          Error_suppressions.update_suppressions lib_suppressions suppressions ))
+          Error_suppressions.update_suppressions lib_suppressions suppressions,
+          exports ))
 
 let is_file_tracked_and_checked ~reader filename =
   Module_heaps.Reader_dispatcher.is_tracked_file ~reader filename
@@ -2534,7 +2536,7 @@ let init_from_saved_state ~profiling ~workers ~saved_state ~updates options =
      *)
     let ordered_libs = List.rev_append (List.rev ordered_flowlib_libs) ordered_non_flowlib_libs in
     let libs = SSet.of_list ordered_libs in
-    let%lwt (libs_ok, local_errors, warnings, suppressions) =
+    let%lwt (libs_ok, local_errors, warnings, suppressions, lib_exports) =
       let suppressions = Error_suppressions.empty in
       init_libs ~options ~profiling ~local_errors ~warnings ~suppressions ~reader ordered_libs
     in
@@ -2595,7 +2597,7 @@ let init_from_saved_state ~profiling ~workers ~saved_state ~updates options =
     in
     let%lwt exports =
       Memory_utils.with_memory_timer_lwt ~options "Indexing" profiling (fun () ->
-          Export_service.init ~workers ~reader parsed_set)
+          Export_service.init ~workers ~reader ~libs:lib_exports parsed_set)
     in
 
     let env =
@@ -2689,7 +2691,7 @@ let init_from_scratch ~profiling ~workers options =
   in
   let local_errors = merge_error_maps package_errors local_errors in
   Hh_logger.info "Loading libraries";
-  let%lwt (libs_ok, local_errors, warnings, suppressions) =
+  let%lwt (libs_ok, local_errors, warnings, suppressions, lib_exports) =
     let suppressions = Error_suppressions.empty in
     init_libs ~options ~profiling ~local_errors ~warnings ~suppressions ~reader ordered_libs
   in
@@ -2732,7 +2734,7 @@ let init_from_scratch ~profiling ~workers options =
   Hh_logger.info "Indexing files";
   let%lwt exports =
     Memory_utils.with_memory_timer_lwt ~options "Indexing" profiling (fun () ->
-        Export_service.init ~workers ~reader parsed)
+        Export_service.init ~workers ~reader ~libs:lib_exports parsed)
   in
   Hh_logger.info "Done";
 
