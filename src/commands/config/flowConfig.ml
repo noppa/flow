@@ -49,7 +49,6 @@ module Opts = struct
     disable_live_non_parse_errors: bool;
     emoji: bool;
     enable_const_params: bool;
-    enforce_strict_call_arity: bool;
     enforce_well_formed_exports: bool option;
     enforce_well_formed_exports_includes: string list;
     enforce_local_inference_annotations: bool;
@@ -86,7 +85,6 @@ module Opts = struct
     module_system: Options.module_system;
     modules_are_use_strict: bool;
     munge_underscores: bool;
-    new_signatures: bool;
     no_flowlib: bool;
     node_main_fields: string list;
     node_resolver_allow_root_relative: bool;
@@ -164,7 +162,6 @@ module Opts = struct
       disable_live_non_parse_errors = false;
       emoji = false;
       enable_const_params = false;
-      enforce_strict_call_arity = true;
       enforce_well_formed_exports = None;
       enforce_well_formed_exports_includes = [];
       enforce_local_inference_annotations = false;
@@ -647,7 +644,6 @@ module Opts = struct
       ("experimental.enums", boolean (fun opts v -> Ok { opts with enums = v }));
       ("experimental.facebook_module_interop", facebook_module_interop_parser);
       ("experimental.module.automatic_require_default", automatic_require_default_parser);
-      ("experimental.new_signatures", new_signatures_parser);
       ("experimental.react.server_component_ext", react_server_component_exts_parser);
       ( "experimental.run_post_inference_implicit_instantiation",
         post_inference_implicit_instantiation_parser );
@@ -719,8 +715,6 @@ module Opts = struct
       ("types_first", types_first_parser);
       ("experimental.new_signatures", new_signatures_parser);
       ("experimental.enforce_local_inference_annotations", local_inference_annotations);
-      ( "experimental.run_post_inference_implicit_instantiation",
-        post_inference_implicit_instantiation );
       ( "experimental.abstract_locations",
         boolean (fun opts v -> Ok { opts with abstract_locations = v }) );
       ( "experimental.disable_live_non_parse_errors",
@@ -744,11 +738,6 @@ module Opts = struct
             let react_server_component_exts = SSet.add v opts.react_server_component_exts in
             Ok { opts with react_server_component_exts }) );
       ("recursion_limit", uint (fun opts v -> Ok { opts with recursion_limit = v }));
-      ("types_first.max_files_checked_per_worker", types_first_max_files_checked_per_worker_parser);
-      ( "types_first.max_seconds_for_check_per_worker",
-        types_first_max_seconds_for_check_per_worker_parser );
-      ( "types_first.max_rss_bytes_for_check_per_worker",
-        types_first_max_rss_bytes_for_check_per_worker_parser );
       ( "experimental.strict_es6_import_export",
         boolean (fun opts v -> Ok { opts with strict_es6_import_export = v }) );
       ("experimental.strict_es6_import_export.excludes", strict_es6_import_export_excludes_parser);

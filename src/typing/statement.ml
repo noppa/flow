@@ -6079,7 +6079,7 @@ and jsx_title cx opening_element children closing_element locs =
   let (loc_element, _, _) = locs in
   let (loc, { Opening.name; attributes; self_closing }) = opening_element in
   let facebook_fbs = Context.facebook_fbs cx in
-  let facebook_fbt = Context.facebook_fbt cx in
+  let facebook_fbt = None in
   let jsx_mode = Context.jsx cx in
   let (t, name, attributes, children) =
     match (name, jsx_mode, (facebook_fbs, facebook_fbt)) with

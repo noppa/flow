@@ -118,7 +118,7 @@ module SignatureVerification = struct
           let should_munge = Options.should_munge_underscores options in
           Docblock.preventMunge docblock || not should_munge
         in
-        let facebook_fbt = Options.facebook_fbt options in
+        let facebook_fbt = None in
         let ignore_static_propTypes = true in
         let facebook_keyMirror = true in
         Signature_builder.Signature.verify

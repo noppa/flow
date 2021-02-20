@@ -487,15 +487,11 @@ module Haste : MODULE_SYSTEM = struct
       Str.string_match mock_path file 0
 
   let is_haste_file options =
-    let includes = lazy (Base.List.map ~f:Str.regexp (Options.haste_paths_includes options)) in
     let excludes = lazy (Base.List.map ~f:Str.regexp (Options.haste_paths_excludes options)) in
-    let matches_includes name =
-      List.exists (fun r -> Str.string_match r name 0) (Lazy.force includes)
-    in
     let matches_excludes name =
       List.exists (fun r -> Str.string_match r name 0) (Lazy.force excludes)
     in
-    (fun name -> matches_includes name && not (matches_excludes name))
+    (fun name -> not (matches_excludes name))
 
   let haste_name =
     let reduce_name name (regexp, template) = Str.global_replace regexp template name in

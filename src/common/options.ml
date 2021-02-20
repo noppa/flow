@@ -87,7 +87,6 @@ type t = {
   opt_module: module_system;
   opt_modules_are_use_strict: bool;
   opt_munge_underscores: bool;
-  opt_new_signatures: bool;
   opt_node_main_fields: string list;
   opt_node_resolver_allow_root_relative: bool;
   opt_node_resolver_root_relative_dirnames: string list;

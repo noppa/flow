@@ -60,7 +60,7 @@ module Make (Extra : BASE_STATS) = struct
   module Acc = Acc (Extra)
 
   let mapper_type_normalization_hardcoded_fixes
-      ~cctx ~lint_severities ~suppress_types ~imports_react ~preserve_literals acc =
+      ~cctx:_cctx ~lint_severities ~suppress_types ~imports_react ~preserve_literals acc =
     object (this)
       inherit Insert_type_utils.patch_up_react_mapper ~imports_react () as super
 
@@ -116,17 +116,6 @@ module Make (Extra : BASE_STATS) = struct
           when is_react_loc sym_def_loc ->
           let symbol = { symbol with Ty.sym_name = "Node" } in
           this#on_t env Ty.(Generic (symbol, kind, None))
-        | Ty.Generic
-            ( ( {
-                  Ty.sym_name = "FbtElement" | "FbtResultBase";
-                  sym_provenance = Ty_symbol.Library _;
-                  _;
-                } as symbol ),
-              kind,
-              None )
-          when (Codemod_context.Typed.metadata cctx).Context.facebook_fbt = Some "FbtElement" ->
-          let symbol = { symbol with Ty.sym_name = "Fbt" } in
-          Ty.(Generic (symbol, kind, None))
         (* The following moves the `any` component of a union to the beginning of the
          * union. This is a heuristic that helps union resolution later on. *)
         | Ty.Union (Ty.Any _, _, _) -> super#on_t env t

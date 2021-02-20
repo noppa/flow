@@ -45,7 +45,6 @@ type metadata = {
   exact_by_default: bool;
   generate_tests: bool;
   facebook_fbs: string option;
-  facebook_fbt: string option;
   facebook_module_interop: bool;
   haste_module_ref_prefix: string option;
   ignore_non_literal_requires: bool;
@@ -224,7 +223,6 @@ let metadata_of_options options =
     exact_by_default = Options.exact_by_default options;
     generate_tests = Options.generate_tests options;
     facebook_fbs = Options.facebook_fbs options;
-    facebook_fbt = Options.facebook_fbt options;
     facebook_module_interop = Options.facebook_module_interop options;
     haste_module_ref_prefix = Options.haste_module_ref_prefix options;
     ignore_non_literal_requires = Options.should_ignore_non_literal_requires options;
@@ -494,8 +492,6 @@ let recursion_limit cx = cx.metadata.recursion_limit
 let root cx = cx.metadata.root
 
 let facebook_fbs cx = cx.metadata.facebook_fbs
-
-let facebook_fbt cx = cx.metadata.facebook_fbt
 
 let facebook_module_interop cx = cx.metadata.facebook_module_interop
 

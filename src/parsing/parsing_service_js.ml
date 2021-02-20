@@ -456,7 +456,29 @@ let do_parse ~parse_options ~info content file =
                   ~facebook_keyMirror
                   signature
               in
-              (None, errors, Parsing_heaps.Classic)
+              let exports =
+                let sig_opts =
+                  {
+                    Type_sig_parse.type_asserts;
+                    suppress_types;
+                    munge = not prevent_munge;
+                    ignore_static_propTypes;
+                    facebook_keyMirror;
+                    facebook_fbt;
+                    max_literal_len;
+                    exact_by_default;
+                    module_ref_prefix;
+                    enable_enums;
+                    enable_this_annot;
+                  }
+                in
+                let (_errors, _locs, type_sig) =
+                  let strict = Docblock.is_strict info in
+                  Type_sig_utils.parse_and_pack_module ~strict sig_opts (Some file) ast
+                in
+                Exports.of_type_sig type_sig
+              in
+              (None, errors, Parsing_heaps.Classic, exports)
             | Options.TypesFirst { new_signatures = false } ->
               let signature = Signature_builder.program ast ~exports_info in
               let (errors, env, sig_ast) =
@@ -514,8 +536,6 @@ let do_parse ~parse_options ~info content file =
                 Exports.of_type_sig type_sig
               in
               (env, errors, Parsing_heaps.TypesFirst { sig_ast; sig_file_sig; aloc_table }, exports)
-            else
-              (env, errors, Parsing_heaps.TypesFirst { sig_ast; sig_file_sig; aloc_table })
             | Options.TypesFirst { new_signatures = true } ->
               let sig_opts =
                 {
@@ -852,7 +872,7 @@ let make_parse_options_internal
     | None -> Options.modules_are_use_strict options
   in
   let module_ref_prefix = Options.haste_module_ref_prefix options in
-  let facebook_fbt = Options.facebook_fbt options in
+  let facebook_fbt = None in
   let arch = Options.arch options in
   let abstract_locations = Options.abstract_locations options in
   let prevent_munge =

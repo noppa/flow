@@ -36,9 +36,8 @@ let parse_lib_file ~reader options file =
         let tolerable_errors = FilenameMap.find lib_file results.Parsing.parse_ok in
         let ast = Parsing_heaps.Mutator_reader.get_ast_unsafe reader lib_file in
         let file_sig = Parsing_heaps.Mutator_reader.get_file_sig_unsafe reader lib_file in
-        let sig_extra = Parsing_heaps.InitLibs in
+        let sig_extra = Parsing_heaps.Classic in
         let exports = (* TODO *) ([] : Exports.t) in
-        (* let sig_extra = Parsing_heaps.Classic in *)
         (* Parsing_service_js.result only returns tolerable file sig errors, dropping parse
            errors. So there may actually have been some, but they were ignored.
            TODO: where do we surface lib parse errors? *)
