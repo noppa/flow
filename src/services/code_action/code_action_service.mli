@@ -26,6 +26,7 @@ val code_actions_at_loc :
   options:Options.t ->
   env:ServerEnv.env ->
   reader:Parsing_heaps.Reader.reader ->
+  file_key:File_key.t ->
   cx:Context.t ->
   file_sig:File_sig.With_Loc.t ->
   tolerable_errors:File_sig.With_Loc.tolerable_error list ->

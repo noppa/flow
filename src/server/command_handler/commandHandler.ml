@@ -950,6 +950,7 @@ let find_code_actions ~reader ~options ~env ~profiling ~params ~client =
           ~options
           ~env
           ~reader
+          ~file_key
           ~cx
           ~file_sig
           ~tolerable_errors

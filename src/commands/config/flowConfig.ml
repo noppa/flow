@@ -49,6 +49,9 @@ module Opts = struct
     disable_live_non_parse_errors: bool;
     emoji: bool;
     enable_const_params: bool;
+    enforce_strict_call_arity: bool;
+    enforce_well_formed_exports: bool option;
+    enforce_well_formed_exports_includes: string list;
     enforce_local_inference_annotations: bool;
     enforce_strict_call_arity: bool;
     enums_with_unknown_members: bool;
@@ -106,6 +109,8 @@ module Opts = struct
     traces: int;
     trust_mode: Options.trust_mode;
     type_asserts: bool;
+    types_first: bool;
+    new_signatures: bool;
     wait_for_recheck: bool;
     watchman_defer_states: string list;
     watchman_mergebase_with: string option;
@@ -159,6 +164,9 @@ module Opts = struct
       disable_live_non_parse_errors = false;
       emoji = false;
       enable_const_params = false;
+      enforce_strict_call_arity = true;
+      enforce_well_formed_exports = None;
+      enforce_well_formed_exports_includes = [];
       enforce_local_inference_annotations = false;
       enforce_strict_call_arity = true;
       enums = false;
@@ -217,6 +225,7 @@ module Opts = struct
       traces = 0;
       trust_mode = Options.NoTrust;
       type_asserts = false;
+      types_first = true;
       wait_for_recheck = false;
       watchman_defer_states = [];
       watchman_mergebase_with = None;
@@ -337,7 +346,38 @@ module Opts = struct
 
   let mapping fn = opt (fun str -> optparse_mapping str >>= fn)
 
-  let new_signatures_parser = boolean (fun opts v -> Ok { opts with new_signatures = v })
+  let well_formed_exports_parser =
+    boolean (fun opts v -> Ok { opts with enforce_well_formed_exports = Some v })
+
+  let well_formed_exports_includes_parser =
+    string
+      ~init:(fun opts -> { opts with enforce_well_formed_exports_includes = [] })
+      ~multiple:true
+      (fun opts v ->
+        if Base.Option.value ~default:false opts.enforce_well_formed_exports then
+          Ok
+            {
+              opts with
+              enforce_well_formed_exports_includes = v :: opts.enforce_well_formed_exports_includes;
+            }
+        else
+          Error "This option requires \"well_formed_exports\" set to \"true\".")
+
+  let types_first_parser =
+    boolean (fun opts v ->
+        if v && opts.enforce_well_formed_exports = Some false then
+          Error "Cannot set it to \"true\" when \"well_formed_exports\" is set to \"false\"."
+        else if v && opts.enforce_well_formed_exports_includes <> [] then
+          Error "Cannot set it to \"true\" when \"well_formed_exports.includes\" is set."
+        else
+          Ok { opts with types_first = v })
+
+  let new_signatures_parser =
+    boolean (fun opts v ->
+        if v && not opts.types_first then
+          Error "Cannot set it to \"true\" when \"types_first\" is set to \"false\"."
+        else
+          Ok { opts with new_signatures = v })
 
   let max_files_checked_per_worker_parser =
     uint (fun opts v -> Ok { opts with max_files_checked_per_worker = v })
@@ -665,6 +705,57 @@ module Opts = struct
       ("types_first.max_seconds_for_check_per_worker", max_seconds_for_check_per_worker_parser);
       ("wait_for_recheck", boolean (fun opts v -> Ok { opts with wait_for_recheck = v }));
       ("weak", boolean (fun opts v -> Ok { opts with weak = v }));
+      ("max_literal_length", uint (fun opts v -> Ok { opts with max_literal_length = v }));
+      ("experimental.const_params", boolean (fun opts v -> Ok { opts with enable_const_params = v }));
+      ("experimental.enums", boolean (fun opts v -> Ok { opts with enums = v }));
+      ( "experimental.enums_with_unknown_members",
+        boolean (fun opts v -> Ok { opts with enums_with_unknown_members = v }) );
+      ("experimental.this_annot", boolean (fun opts v -> Ok { opts with this_annot = v }));
+      ( "experimental.strict_call_arity",
+        boolean (fun opts v -> Ok { opts with enforce_strict_call_arity = v }) );
+      ("well_formed_exports", well_formed_exports_parser);
+      ("well_formed_exports.includes", well_formed_exports_includes_parser);
+      ("experimental.type_asserts", boolean (fun opts v -> Ok { opts with type_asserts = v }));
+      ("types_first", types_first_parser);
+      ("experimental.new_signatures", new_signatures_parser);
+      ("experimental.enforce_local_inference_annotations", local_inference_annotations);
+      ( "experimental.run_post_inference_implicit_instantiation",
+        post_inference_implicit_instantiation );
+      ( "experimental.abstract_locations",
+        boolean (fun opts v -> Ok { opts with abstract_locations = v }) );
+      ( "experimental.disable_live_non_parse_errors",
+        boolean (fun opts v -> Ok { opts with disable_live_non_parse_errors = v }) );
+      ("no_flowlib", boolean (fun opts v -> Ok { opts with no_flowlib = v }));
+      ( "trust_mode",
+        enum
+          [
+            ("check", Options.CheckTrust); ("silent", Options.SilentTrust); ("none", Options.NoTrust);
+          ]
+          (fun opts trust_mode -> Ok { opts with trust_mode }) );
+      ( "react.runtime",
+        enum
+          [("classic", Options.ReactRuntimeClassic); ("automatic", Options.ReactRuntimeAutomatic)]
+          (fun opts react_runtime -> Ok { opts with react_runtime }) );
+      ( "experimental.react.server_component_ext",
+        string
+          ~init:(fun opts -> { opts with react_server_component_exts = SSet.empty })
+          ~multiple:true
+          (fun opts v ->
+            let react_server_component_exts = SSet.add v opts.react_server_component_exts in
+            Ok { opts with react_server_component_exts }) );
+      ("recursion_limit", uint (fun opts v -> Ok { opts with recursion_limit = v }));
+      ("types_first.max_files_checked_per_worker", types_first_max_files_checked_per_worker_parser);
+      ( "types_first.max_seconds_for_check_per_worker",
+        types_first_max_seconds_for_check_per_worker_parser );
+      ( "types_first.max_rss_bytes_for_check_per_worker",
+        types_first_max_rss_bytes_for_check_per_worker_parser );
+      ( "experimental.strict_es6_import_export",
+        boolean (fun opts v -> Ok { opts with strict_es6_import_export = v }) );
+      ("experimental.strict_es6_import_export.excludes", strict_es6_import_export_excludes_parser);
+      ( "experimental.module.automatic_require_default",
+        boolean (fun opts v -> Ok { opts with automatic_require_default = v }) );
+      ( "experimental.facebook_module_interop",
+        boolean (fun opts v -> Ok { opts with facebook_module_interop = v }) );
     ]
 
   let parse =
@@ -1201,6 +1292,12 @@ let enforce_local_inference_annotations c = c.options.Opts.enforce_local_inferen
 
 let enforce_strict_call_arity c = c.options.Opts.enforce_strict_call_arity
 
+let enforce_well_formed_exports c =
+  c.options.Opts.types_first
+  || Base.Option.value ~default:false c.options.Opts.enforce_well_formed_exports
+
+let enforce_well_formed_exports_includes c = c.options.Opts.enforce_well_formed_exports_includes
+
 let enums c = c.options.Opts.enums
 
 let enums_with_unknown_members c = c.options.Opts.enums_with_unknown_members
@@ -1308,6 +1405,8 @@ let traces c = c.options.Opts.traces
 let trust_mode c = c.options.Opts.trust_mode
 
 let type_asserts c = c.options.Opts.type_asserts
+
+let types_first c = c.options.Opts.types_first
 
 let new_signatures c = c.options.Opts.new_signatures
 

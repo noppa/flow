@@ -197,6 +197,7 @@ let code_actions_at_loc
     ~options
     ~env
     ~reader
+    ~file_key
     ~cx
     ~file_sig
     ~tolerable_errors
@@ -207,15 +208,18 @@ let code_actions_at_loc
     ~uri
     ~loc =
   let experimental_code_actions =
-    autofix_exports_code_actions
-      ~full_cx:cx
-      ~ast
-      ~file_sig
-      ~tolerable_errors
-      ~typed_ast
-      ~diagnostics
-      uri
-      loc
+    if Inference_utils.well_formed_exports_enabled options file_key then
+      autofix_exports_code_actions
+        ~full_cx:cx
+        ~ast
+        ~file_sig
+        ~tolerable_errors
+        ~typed_ast
+        ~diagnostics
+        uri
+        loc
+    else
+      []
   in
   let error_fixes =
     code_actions_of_errors

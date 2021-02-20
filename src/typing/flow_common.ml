@@ -68,6 +68,12 @@ module type BASE = sig
     unit
 end
 
+(* This is here instead of assert_ground.ml to avoid the duplication of the enforce strict
+ * signature *)
+module type ASSERT_GROUND = sig
+  val enforce_strict : Context.t -> Type.t -> should_munge_underscores:bool -> unit
+end
+
 module type CHECK_POLARITY = sig
   val check_polarity :
     Context.t -> ?trace:Trace.t -> Type.typeparam SMap.t -> Polarity.t -> Type.t -> unit
@@ -205,6 +211,8 @@ module type S = sig
   include REACT
 
   include SUBTYPING
+
+  include ASSERT_GROUND
 
   include CHECK_POLARITY
 

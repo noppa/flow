@@ -38,6 +38,7 @@ let parse_lib_file ~reader options file =
         let file_sig = Parsing_heaps.Mutator_reader.get_file_sig_unsafe reader lib_file in
         let sig_extra = Parsing_heaps.InitLibs in
         let exports = (* TODO *) ([] : Exports.t) in
+        (* let sig_extra = Parsing_heaps.Classic in *)
         (* Parsing_service_js.result only returns tolerable file sig errors, dropping parse
            errors. So there may actually have been some, but they were ignored.
            TODO: where do we surface lib parse errors? *)
@@ -94,9 +95,12 @@ let load_lib_files ~ccx ~options ~reader files =
                let syms = Infer.infer_lib_file cx ast ~exclude_syms ~lint_severities ~file_sig in
                let errors = Context.errors cx in
                let errors =
-                 tolerable_errors
-                 |> Inference_utils.set_of_file_sig_tolerable_errors ~source_file:lib_file
-                 |> Flow_error.ErrorSet.union errors
+                 if Inference_utils.well_formed_exports_enabled options lib_file then
+                   tolerable_errors
+                   |> Inference_utils.set_of_file_sig_tolerable_errors ~source_file:lib_file
+                   |> Flow_error.ErrorSet.union errors
+                 else
+                   errors
                in
                let suppressions = Context.error_suppressions cx in
                let severity_cover = Context.severity_cover cx in

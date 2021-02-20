@@ -30,6 +30,10 @@ type saved_state_fetcher =
   | Local_fetcher
   | Fb_fetcher
 
+type arch =
+  | Classic
+  | TypesFirst of { new_signatures: bool }
+
 type trust_mode =
   | NoTrust
   | CheckTrust
@@ -46,17 +50,18 @@ type t = {
   opt_all: bool;
   opt_autoimports: bool;
   opt_automatic_require_default: bool;
+  opt_arch: arch;
   opt_babel_loose_array_spread: bool;
   opt_debug: bool;
   opt_enable_const_params: bool;
   opt_enabled_rollouts: string SMap.t;
   opt_enforce_local_inference_annotations: bool;
   opt_enforce_strict_call_arity: bool;
-  opt_enums_with_unknown_members: bool;
+  opt_enforce_well_formed_exports: string list option;
   opt_enums: bool;
+  opt_enums_with_unknown_members: bool;
   opt_exact_by_default: bool;
   opt_facebook_fbs: string option;
-  opt_facebook_fbt: string option;
   opt_facebook_module_interop: bool;
   opt_file_options: Files.options;
   opt_flowconfig_name: string;
@@ -65,7 +70,6 @@ type t = {
   opt_haste_module_ref_prefix: string option;
   opt_haste_name_reducers: (Str.regexp * string) list;
   opt_haste_paths_excludes: string list;
-  opt_haste_paths_includes: string list;
   opt_haste_use_name_reducers: bool;
   opt_ignore_non_literal_requires: bool;
   opt_include_suppressions: bool;
@@ -123,7 +127,7 @@ let automatic_require_default opts = opts.opt_automatic_require_default
 
 let babel_loose_array_spread opts = opts.opt_babel_loose_array_spread
 
-let new_signatures opts = opts.opt_new_signatures
+let arch opts = opts.opt_arch
 
 let max_literal_length opts = opts.opt_max_literal_length
 
@@ -132,6 +136,8 @@ let enable_const_params opts = opts.opt_enable_const_params
 let enabled_rollouts opts = opts.opt_enabled_rollouts
 
 let enforce_strict_call_arity opts = opts.opt_enforce_strict_call_arity
+
+let enforce_well_formed_exports opts = opts.opt_enforce_well_formed_exports
 
 let enforce_local_inference_annotations opts = opts.opt_enforce_local_inference_annotations
 
@@ -152,8 +158,6 @@ let haste_module_ref_prefix opts = opts.opt_haste_module_ref_prefix
 let haste_name_reducers opts = opts.opt_haste_name_reducers
 
 let haste_paths_excludes opts = opts.opt_haste_paths_excludes
-
-let haste_paths_includes opts = opts.opt_haste_paths_includes
 
 let haste_use_name_reducers opts = opts.opt_haste_use_name_reducers
 
@@ -206,8 +210,6 @@ let root opts = opts.opt_root
 let root_name opts = opts.opt_root_name
 
 let facebook_fbs opts = opts.opt_facebook_fbs
-
-let facebook_fbt opts = opts.opt_facebook_fbt
 
 let facebook_module_interop opts = opts.opt_facebook_module_interop
 

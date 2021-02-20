@@ -1186,7 +1186,26 @@ let make_options
     in
     Base.Option.value lazy_mode ~default
   in
-  let opt_new_signatures = options_flags.new_signatures || FlowConfig.new_signatures flowconfig in
+  let opt_arch =
+    if options_flags.new_signatures || FlowConfig.types_first flowconfig then
+      let new_signatures = options_flags.new_signatures || FlowConfig.new_signatures flowconfig in
+      Options.TypesFirst { new_signatures }
+    else
+      Options.Classic
+  in
+  let opt_enforce_well_formed_exports =
+    if options_flags.new_signatures || FlowConfig.types_first flowconfig then
+      Some []
+    else if FlowConfig.enforce_well_formed_exports flowconfig then
+      let paths =
+        Base.List.map
+          ~f:(Files.expand_project_root_token ~root)
+          (FlowConfig.enforce_well_formed_exports_includes flowconfig)
+      in
+      Some paths
+    else
+      None
+  in
   let opt_abstract_locations =
     options_flags.abstract_locations || FlowConfig.abstract_locations flowconfig
   in
@@ -1236,12 +1255,12 @@ let make_options
     opt_run_post_inference_implicit_instantiation =
       FlowConfig.run_post_inference_implicit_instantiation flowconfig;
     opt_enforce_strict_call_arity = FlowConfig.enforce_strict_call_arity flowconfig;
+    opt_enforce_well_formed_exports;
     opt_enums = FlowConfig.enums flowconfig;
     opt_enums_with_unknown_members = FlowConfig.enums_with_unknown_members flowconfig;
     opt_this_annot = FlowConfig.this_annot flowconfig;
     opt_exact_by_default = FlowConfig.exact_by_default flowconfig;
     opt_facebook_fbs = FlowConfig.facebook_fbs flowconfig;
-    opt_facebook_fbt = FlowConfig.facebook_fbt flowconfig;
     opt_facebook_module_interop = FlowConfig.facebook_module_interop flowconfig;
     opt_ignore_non_literal_requires = FlowConfig.ignore_non_literal_requires flowconfig;
     opt_include_warnings =
@@ -1255,10 +1274,6 @@ let make_options
       Base.List.map
         ~f:(Files.expand_project_root_token ~root)
         (FlowConfig.haste_paths_excludes flowconfig);
-    opt_haste_paths_includes =
-      Base.List.map
-        ~f:(Files.expand_project_root_token ~root)
-        (FlowConfig.haste_paths_includes flowconfig);
     opt_haste_use_name_reducers = FlowConfig.haste_use_name_reducers flowconfig;
     opt_file_options = file_options;
     opt_lint_severities = lint_severities;
@@ -1270,7 +1285,7 @@ let make_options
     opt_node_resolver_allow_root_relative = FlowConfig.node_resolver_allow_root_relative flowconfig;
     opt_node_resolver_root_relative_dirnames =
       FlowConfig.node_resolver_root_relative_dirnames flowconfig;
-    opt_new_signatures;
+    opt_arch;
     opt_abstract_locations;
     opt_include_suppressions = options_flags.include_suppressions;
     opt_trust_mode =

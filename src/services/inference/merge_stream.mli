@@ -15,6 +15,7 @@ type 'a t
 
 val create :
   num_workers:int ->
+  arch:Options.arch ->
   sig_dependency_graph:FilenameSet.t FilenameMap.t ->
   leader_map:File_key.t FilenameMap.t ->
   component_map:File_key.t Nel.t FilenameMap.t ->
