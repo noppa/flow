@@ -156,7 +156,6 @@ let stub_metadata ~root ~checked =
     enforce_strict_call_arity = true;
     exact_by_default = false;
     facebook_fbs = None;
-    facebook_fbt = None;
     facebook_module_interop = false;
     haste_module_ref_prefix = None;
     ignore_non_literal_requires = false;
