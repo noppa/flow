@@ -1,25 +1,69 @@
-# Flow
-<p align="center">
-  <a href="https://circleci.com/gh/facebook/flow/tree/master">
-    <img src="https://circleci.com/gh/facebook/flow/tree/master.svg?style=shield" alt="CircleCI" />
-  </a>
-  <a href="https://twitter.com/flowtype">
-   <img src="https://img.shields.io/twitter/follow/flowtype?style=social" alt="Follow @flowtype" />
-  </a>
-  <a href="https://github.com/facebook/flow/blob/master/LICENSE">
-    <img alt="GitHub" src="https://img.shields.io/github/license/facebook/flow">
-  </a>
-  <a href="https://github.com/facebook/flow/graphs/contributors">
-   <img alt="GitHub contributors" src="https://img.shields.io/github/contributors/facebook/flow">
-  </a>
-  <a href="">
-    <img alt="GitHub top language" src="https://img.shields.io/github/languages/top/facebook/flow">
-  </a>
-  <a href="https://discordapp.com/invite/8ezwRUK">
-     <img alt="Join Discord Chat" src="https://img.shields.io/discord/539606376339734558.svg?label=discord&logo=discord&logoColor=white">
-  </a>
-</p>
+**Fork of [Flow](https://github.com/facebook/flow) version 0.142**, with some
+newer LSP features and fixes
+cherry-picked to it. Namely, this fork supports both "classic mode" (as
+opposed to "types first mode") and **autoimports**.
 
+### Motivation
+[Flow version 0.143 dropped support for "classic mode", and now
+only supports "types first mode"](https://medium.com/flow-type/types-first-a-scalable-new-architecture-for-flow-3d8c7ba1d4eb).
+That in turn requires something called
+"well formed exports", which means explicit types for most of exported values
+in modules. I have no doubt types first mode comes with many benefits, such
+as better performance for type checking large codebases, but it also comes
+with a cost. Annotating exports with explicit types can require lots of code
+changes. Flow ships with a codemod to do some of this work automatically, but
+the output is far from perfect and you may have to do lots of manual work
+too, especially if you care about the readability of the end result. [I also
+happen to have lots of arrow functions in class fields that I just really
+don't want to type with separate explicit field class annotations](https://github.com/facebook/flow/issues/8541). For these
+reasons, I'm using version 0.142 with classic mode enabled for the
+foreseeable future.
+
+That said, version 0.143 also introduced some very compelling new features,
+most notably autoimports. This fork is almost (see [Breaking changes](#breaking-changes))
+fully compatible with version 0.142, classic mode included, but with the
+sweet LSP features cherry-picked to it.
+
+### Usage
+This build is not published to npm. I recommend that you keep using the
+official flow-bin version 0.142 in your package.json and CI and where ever
+you validate your codebase is free of type errors. That'll make the "switch"
+to my custom build very risk-free since your "official" type checker is still
+the official build. Instead of completely replacing flow-bin from your repo,
+just download my fork's built binary from the Releases page and point your
+editor to use that for LSP support. For VSCode and [flow-for-vscode](https://github.com/flowtype/flow-for-vscode), this can
+be done with configuration options
+
+```json
+"flow.useBundledFlow": false,
+"flow.useNPMPackagedFlow": false,
+"flow.pathToFlow": "/path/to/downloaded/flow"
+```
+
+### Breaking changes
+While my goal was to keep compatibility with 0.142, there
+are a couple of minor things that may cause new errors to surface.
+
+1. Library definition files no longer allow imports at the top level of the file. Move
+import statements inside "declare module" blocks.
+2. Library definition files may surface type errors that were previously just
+silently ignored. These are usually actual mistakes in the type definitions
+that previously would not raise errors, but may have caused some types to be
+implicitly inferred as any.
+3. Option `facebook_fbt` is dropped in some places and may not work
+correctly. It's an undocumented option that I have no use for so I didn't
+care to fix it properly when resolving merge conflicts and stuff. Feel free
+to open an issue (or even better, PR) if this feature is important to you.
+
+These changes may cause some new errors to surface at first when you start
+using this build. You should be able to fix these errors without losing
+compatibility with the official 0.142 build, though, and your codebase is
+probably better off with them fixed anyway.
+
+
+---
+
+# Flow
 
 Flow is a static typechecker for JavaScript. To find out more about Flow, check out [flow.org](https://flow.org/).
 
