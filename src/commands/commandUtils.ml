@@ -1323,7 +1323,7 @@ let make_options
         (FlowConfig.strict_es6_import_export_excludes flowconfig);
     opt_automatic_require_default = FlowConfig.automatic_require_default flowconfig;
     opt_format;
-    opt_autoimports = Base.Option.value (FlowConfig.autoimports flowconfig) ~default:false;
+    opt_autoimports = Base.Option.value (FlowConfig.autoimports flowconfig) ~default:true;
     opt_flowconfig_hash = flowconfig_hash;
   }
 
