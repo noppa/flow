@@ -31,14 +31,25 @@ you validate your codebase is free of type errors. That'll make the "switch"
 to my custom build very risk-free since your "official" type checker is still
 the official build. Instead of completely replacing flow-bin from your repo,
 just download my fork's built binary from the Releases page and point your
-editor to use that for LSP support. For VSCode and [flow-for-vscode](https://github.com/flowtype/flow-for-vscode), this can
+editor to use that for LSP support.
+The easiest way to install the release is with npm
+```sh
+ npm i -g https://github.com/noppa/flow/releases/download/v0.142.0-autoimports.0/flow-bin-0.142.0.tgz
+ ```
+ This will make your global `flow` command point to the fork. If you don't
+ want to set the fork as your global Flow installation, you can always just
+ install it in an empty npm project somewhere in your computer and point
+ to that in editor config (`"flow.pathToFlow"` for VSCode).
+
+For VSCode and [flow-for-vscode](https://github.com/flowtype/flow-for-vscode), this can
 be done with configuration options
 
 ```json
 "flow.useBundledFlow": false,
 "flow.useNPMPackagedFlow": false,
-"flow.pathToFlow": "/path/to/downloaded/flow"
+"flow.pathToFlow": "flow"
 ```
+
 
 ### Breaking changes
 While my goal was to keep compatibility with 0.142, there
