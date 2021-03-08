@@ -161,6 +161,7 @@ let string_of_binary_operator op =
   | BitAnd -> "&"
   | In -> "in"
   | Instanceof -> "instanceof"
+  | Pipeline -> "|>"
 
 module ExpressionSort = struct
   type t =

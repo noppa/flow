@@ -156,6 +156,7 @@ type t =
   | OptionalChainTemplate
   | NullishCoalescingDisabled
   | NullishCoalescingUnexpectedLogical of string
+  | FSharpPipelineOperatorDisabled
   | WhitespaceInPrivateName
   | ThisParamAnnotationRequired
   | ThisParamMustBeFirst
@@ -426,6 +427,10 @@ module PP = struct
       Printf.sprintf
         "Unexpected token `%s`. Parentheses are required to combine `??` with `&&` or `||` expressions."
         operator
+    | FSharpPipelineOperatorDisabled -> "The F# pipeline operator plugin must be enabled in order to \
+        use the pipeline operator (`|>`). Pipeline operator is an active early-stage \
+        feature proposal which may change and is not enabled by default. To enable support in \
+        the parser, use the `esproposal_fsharp_pipeline_operator` option."
     | WhitespaceInPrivateName -> "Unexpected whitespace between `#` and identifier"
     | ThisParamAnnotationRequired -> "A type annotation is required for the `this` parameter."
     | ThisParamMustBeFirst -> "The `this` parameter must be the first function parameter."

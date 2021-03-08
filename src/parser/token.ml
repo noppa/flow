@@ -110,6 +110,7 @@ type t =
   | T_PLING
   | T_COLON
   | T_OR
+  | T_PIPELINE
   | T_AND
   | T_BIT_OR
   | T_BIT_XOR
@@ -287,6 +288,7 @@ let token_to_string = function
   | T_COLON -> "T_COLON"
   | T_OR -> "T_OR"
   | T_AND -> "T_AND"
+  | T_PIPELINE -> "T_PIPELINE"
   | T_BIT_OR -> "T_BIT_OR"
   | T_BIT_XOR -> "T_BIT_XOR"
   | T_BIT_AND -> "T_BIT_AND"
@@ -422,6 +424,7 @@ let value_of_token = function
   | T_COLON -> ":"
   | T_OR -> "||"
   | T_AND -> "&&"
+  | T_PIPELINE -> "|>"
   | T_BIT_OR -> "|"
   | T_BIT_XOR -> "^"
   | T_BIT_AND -> "&"

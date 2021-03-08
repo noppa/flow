@@ -59,6 +59,7 @@ type metadata = {
   enforce_strict_call_arity: bool;
   enforce_local_inference_annotations: bool;
   exact_by_default: bool;
+  esproposal_fsharp_pipeline_operator: Options.esproposal_feature_mode;
   facebook_fbs: string option;
   facebook_module_interop: bool;
   haste_module_ref_prefix: string option;
@@ -145,6 +146,8 @@ val enable_const_params : t -> bool
 val enable_enums : t -> bool
 
 val enable_enums_with_unknown_members : t -> bool
+
+val esproposal_fsharp_pipeline_operator : t -> Options.esproposal_feature_mode
 
 val enable_this_annot : t -> bool
 

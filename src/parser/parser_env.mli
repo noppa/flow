@@ -36,6 +36,7 @@ type parse_options = {
   esproposal_export_star_as: bool;  (** enable parsing of `export * as` syntax *)
   esproposal_nullish_coalescing: bool;  (** enable parsing of nullish coalescing (`??`) *)
   esproposal_optional_chaining: bool;  (** enable parsing of optional chaining (`?.`) *)
+  esproposal_fsharp_pipeline_operator: bool;
   types: bool;  (** enable parsing of Flow types *)
   use_strict: bool;  (** treat the file as strict, without needing a "use strict" directive *)
 }
@@ -85,6 +86,8 @@ val allow_await : env -> bool
 val allow_directive : env -> bool
 
 val allow_super : env -> allowed_super
+
+val allow_solo_await : env -> bool
 
 val no_in : env -> bool
 
@@ -148,6 +151,8 @@ val with_allow_await : bool -> env -> env
 val with_allow_directive : bool -> env -> env
 
 val with_allow_super : allowed_super -> env -> env
+
+val with_allow_solo_await : bool -> env -> env
 
 val with_no_let : bool -> env -> env
 

@@ -42,6 +42,7 @@ let parse_content file content =
           esproposal_export_star_as = true;
           esproposal_optional_chaining = true;
           esproposal_nullish_coalescing = true;
+          esproposal_fsharp_pipeline_operator = true;
           types = true;
           use_strict = false;
         }
@@ -155,6 +156,7 @@ let stub_metadata ~root ~checked =
     enforce_local_inference_annotations = false;
     enforce_strict_call_arity = true;
     exact_by_default = false;
+    esproposal_fsharp_pipeline_operator = Options.ESPROPOSAL_ENABLE;
     facebook_fbs = None;
     facebook_module_interop = false;
     haste_module_ref_prefix = None;

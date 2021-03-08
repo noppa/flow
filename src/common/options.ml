@@ -15,6 +15,11 @@ type lazy_mode =
   | LAZY_MODE_WATCHMAN
   | NON_LAZY_MODE
 
+type esproposal_feature_mode =
+  | ESPROPOSAL_ENABLE
+  | ESPROPOSAL_IGNORE
+  | ESPROPOSAL_WARN
+
 type jsx_mode =
   (* JSX desugars into a `React.createElement(name, props, ...children)` call *)
   | Jsx_react
@@ -62,6 +67,7 @@ type t = {
   opt_enums_with_unknown_members: bool;
   opt_exact_by_default: bool;
   opt_facebook_fbs: string option;
+  opt_esproposal_fsharp_pipeline_operator: esproposal_feature_mode;
   opt_facebook_module_interop: bool;
   opt_file_options: Files.options;
   opt_flowconfig_name: string;
@@ -149,6 +155,8 @@ let format_single_quotes opts = opts.opt_format.opt_single_quotes
 let this_annot opts = opts.opt_this_annot
 
 let exact_by_default opts = opts.opt_exact_by_default
+
+let esproposal_fsharp_pipeline_operator opts = opts.opt_esproposal_fsharp_pipeline_operator
 
 let haste_module_ref_prefix opts = opts.opt_haste_module_ref_prefix
 

@@ -2390,6 +2390,7 @@ let binary loc =
   | Xor
   | BitAnd ->
     Value (NumberVal loc)
+  | Pipeline
   | Plus ->
     Err (loc, SigError (Signature_error.UnexpectedExpression (loc, Flow_ast_utils.ExpressionSort.Binary)))
 
@@ -2892,6 +2893,7 @@ and predicate opts scope locs pnames =
     | LShift | RShift | RShift3
     | Plus | Minus | Mult | Exp | Div | Mod
     | BitOr | Xor | BitAnd
+    | Pipeline
     | In ->
       None
   in

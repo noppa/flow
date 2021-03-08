@@ -58,6 +58,7 @@ module Opts = struct
     exact_by_default: bool;
     facebook_fbs: string option;
     facebook_fbt: string option;
+    esproposal_fsharp_pipeline_operator: Options.esproposal_feature_mode;
     facebook_module_interop: bool;
     file_watcher_timeout: int option;
     file_watcher: file_watcher option;
@@ -169,6 +170,7 @@ module Opts = struct
       enums = false;
       enums_with_unknown_members = false;
       exact_by_default = false;
+      esproposal_fsharp_pipeline_operator = Options.ESPROPOSAL_WARN;
       facebook_fbs = None;
       facebook_fbt = None;
       facebook_module_interop = false;
@@ -447,6 +449,18 @@ module Opts = struct
              (deprecated_esproposal_unparse default))
     in
     enum [("enable", Enable); ("ignore", Ignore); ("warn", Warn)] f
+  
+  let esproposal_feature_flag ?(allow_enable=false) =
+    let values = [
+      ("ignore", Options.ESPROPOSAL_IGNORE);
+      ("warn", Options.ESPROPOSAL_WARN);
+    ] in
+    let values =
+      if allow_enable
+      then ("enable", Options.ESPROPOSAL_ENABLE)::values
+      else values
+    in
+    enum values
 
   let abstract_locations_parser = boolean (fun opts v -> Ok { opts with abstract_locations = v })
 
@@ -632,6 +646,8 @@ module Opts = struct
       ("esproposal.class_instance_fields", deprecated_esproposal_flag Enable);
       ("esproposal.class_static_fields", deprecated_esproposal_flag Enable);
       ("esproposal.decorators", deprecated_esproposal_flag Ignore);
+      ("esproposal.fsharp_pipeline_operator", esproposal_feature_flag ~allow_enable:true (
+        fun opts v -> Ok { opts with esproposal_fsharp_pipeline_operator = v }));
       ("esproposal.export_star_as", deprecated_esproposal_flag Enable);
       ("esproposal.nullish_coalescing", deprecated_esproposal_flag Enable);
       ("esproposal.optional_chaining", deprecated_esproposal_flag Enable);
@@ -1293,6 +1309,8 @@ let enums_with_unknown_members c = c.options.Opts.enums_with_unknown_members
 let this_annot c = c.options.Opts.this_annot
 
 let exact_by_default c = c.options.Opts.exact_by_default
+
+let esproposal_fsharp_pipeline_operator c = c.options.Opts.esproposal_fsharp_pipeline_operator
 
 let file_watcher c = c.options.Opts.file_watcher
 

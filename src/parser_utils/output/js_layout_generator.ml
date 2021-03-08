@@ -165,32 +165,33 @@ let precedence_of_expression expr =
   | (_, E.Binary { E.Binary.operator; _ }) ->
     begin
       match operator with
-      | E.Binary.Exp -> 16
-      | E.Binary.Mult -> 15
-      | E.Binary.Div -> 15
-      | E.Binary.Mod -> 15
-      | E.Binary.Plus -> 14
-      | E.Binary.Minus -> 14
-      | E.Binary.LShift -> 13
-      | E.Binary.RShift -> 13
-      | E.Binary.RShift3 -> 13
-      | E.Binary.LessThan -> 12
-      | E.Binary.LessThanEqual -> 12
-      | E.Binary.GreaterThan -> 12
-      | E.Binary.GreaterThanEqual -> 12
-      | E.Binary.In -> 12
-      | E.Binary.Instanceof -> 12
-      | E.Binary.Equal -> 11
-      | E.Binary.NotEqual -> 11
-      | E.Binary.StrictEqual -> 11
-      | E.Binary.StrictNotEqual -> 11
-      | E.Binary.BitAnd -> 10
-      | E.Binary.Xor -> 9
-      | E.Binary.BitOr -> 8
+      | E.Binary.Exp -> 17
+      | E.Binary.Mult -> 16
+      | E.Binary.Div -> 16
+      | E.Binary.Mod -> 16
+      | E.Binary.Plus -> 15
+      | E.Binary.Minus -> 15
+      | E.Binary.LShift -> 14
+      | E.Binary.RShift -> 14
+      | E.Binary.RShift3 -> 14
+      | E.Binary.LessThan -> 13
+      | E.Binary.LessThanEqual -> 13
+      | E.Binary.GreaterThan -> 13
+      | E.Binary.GreaterThanEqual -> 13
+      | E.Binary.In -> 13
+      | E.Binary.Instanceof -> 13
+      | E.Binary.Equal -> 12
+      | E.Binary.NotEqual -> 12
+      | E.Binary.StrictEqual -> 12
+      | E.Binary.StrictNotEqual -> 12
+      | E.Binary.BitAnd -> 11
+      | E.Binary.Xor -> 10
+      | E.Binary.BitOr -> 9
+      | E.Binary.Pipeline -> 5
     end
-  | (_, E.Logical { E.Logical.operator = E.Logical.And; _ }) -> 7
-  | (_, E.Logical { E.Logical.operator = E.Logical.Or; _ }) -> 6
-  | (_, E.Logical { E.Logical.operator = E.Logical.NullishCoalesce; _ }) -> 5
+  | (_, E.Logical { E.Logical.operator = E.Logical.And; _ }) -> 8
+  | (_, E.Logical { E.Logical.operator = E.Logical.Or; _ }) -> 7
+  | (_, E.Logical { E.Logical.operator = E.Logical.NullishCoalesce; _ }) -> 6
   | (_, E.Conditional _) -> 4
   | (_, E.Assignment _) -> precedence_of_assignment
   | (_, E.Yield _) -> 2

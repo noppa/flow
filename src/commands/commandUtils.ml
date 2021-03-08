@@ -1285,6 +1285,7 @@ let make_options
       options_flags.include_warnings
       || options_flags.max_warnings <> None
       || FlowConfig.include_warnings flowconfig;
+    opt_esproposal_fsharp_pipeline_operator = FlowConfig.esproposal_fsharp_pipeline_operator flowconfig;
     opt_max_header_tokens = FlowConfig.max_header_tokens flowconfig;
     opt_haste_module_ref_prefix = FlowConfig.haste_module_ref_prefix flowconfig;
     opt_haste_name_reducers = FlowConfig.haste_name_reducers flowconfig;

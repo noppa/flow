@@ -43,6 +43,7 @@ type metadata = {
   enforce_strict_call_arity: bool;
   enforce_local_inference_annotations: bool;
   exact_by_default: bool;
+  esproposal_fsharp_pipeline_operator: Options.esproposal_feature_mode;
   facebook_fbs: string option;
   facebook_module_interop: bool;
   haste_module_ref_prefix: string option;
@@ -217,6 +218,7 @@ let metadata_of_options options =
     enable_enums = Options.enums options;
     enable_enums_with_unknown_members = Options.enums_with_unknown_members options;
     enable_this_annot = Options.this_annot options;
+    esproposal_fsharp_pipeline_operator = Options.esproposal_fsharp_pipeline_operator options;
     enforce_strict_call_arity = Options.enforce_strict_call_arity options;
     enforce_local_inference_annotations = Options.enforce_local_inference_annotations options;
     exact_by_default = Options.exact_by_default options;
@@ -400,6 +402,8 @@ let enable_enums cx = cx.metadata.enable_enums
 let enable_enums_with_unknown_members cx = cx.metadata.enable_enums_with_unknown_members
 
 let enable_this_annot cx = cx.metadata.enable_this_annot
+
+let esproposal_fsharp_pipeline_operator cx = cx.metadata.esproposal_fsharp_pipeline_operator
 
 let enforce_strict_call_arity cx = cx.metadata.enforce_strict_call_arity
 

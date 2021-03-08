@@ -295,6 +295,7 @@ and 'loc t' =
     }
   | ESketchyNumberLint of Lints.sketchy_number_kind * 'loc virtual_reason
   | EInvalidPrototype of 'loc * 'loc virtual_reason
+  | EExperimentalFSharpPipelineOperator of 'loc
   | EUnnecessaryOptionalChain of 'loc * 'loc virtual_reason
   | EUnnecessaryInvariant of 'loc * 'loc virtual_reason
   | EUnexpectedTemporaryBaseType of 'loc
@@ -841,6 +842,7 @@ let rec map_loc_of_error_message (f : 'a -> 'b) : 'a t' -> 'b t' =
     ESketchyNullLint { kind; loc = f loc; null_loc = f null_loc; falsy_loc = f falsy_loc }
   | ESketchyNumberLint (kind, r) -> ESketchyNumberLint (kind, map_reason r)
   | EInvalidPrototype (loc, r) -> EInvalidPrototype (f loc, map_reason r)
+  | EExperimentalFSharpPipelineOperator loc -> EExperimentalFSharpPipelineOperator (f loc)
   | EUnnecessaryOptionalChain (loc, r) -> EUnnecessaryOptionalChain (f loc, map_reason r)
   | EUnnecessaryInvariant (loc, r) -> EUnnecessaryInvariant (f loc, map_reason r)
   | EUnexpectedTemporaryBaseType loc -> EUnexpectedTemporaryBaseType (f loc)
@@ -1107,6 +1109,7 @@ let util_use_op_of_msg nope util = function
   | EExperimentalEnums _
   | EExperimentalEnumsWithUnknownMembers _
   | EExperimentalThisAnnot _
+  | EExperimentalFSharpPipelineOperator _
   | EIndeterminateModuleType _
   | EBadExportPosition _
   | EBadExportContext _
@@ -1293,6 +1296,7 @@ let loc_of_msg : 'loc t' -> 'loc option = function
   | EExperimentalEnums loc
   | EExperimentalEnumsWithUnknownMembers loc
   | EExperimentalThisAnnot loc
+  | EExperimentalFSharpPipelineOperator loc
   | EUnsafeGetSet loc
   | EUninitializedInstanceProperty (loc, _)
   | EModuleOutsideRoot (loc, _)
@@ -1416,6 +1420,7 @@ let kind_of_msg =
     | EExperimentalEnums _
     | EExperimentalEnumsWithUnknownMembers _
     | EExperimentalThisAnnot _
+    | EExperimentalFSharpPipelineOperator _
     | EIndeterminateModuleType _
     | EUnreachable _
     | EInvalidTypeof _ ->
@@ -3400,6 +3405,16 @@ let friendly_message_of_msg : Loc.t t' -> Loc.t friendly_message_recipe =
       | None -> []
     in
     IncompatibleEnum { reason_lower; reason_upper; use_op; suggestion }
+  | EExperimentalFSharpPipelineOperator _ ->
+    let features = [
+      text "Experimental F# pipeline operator ("; code "|>"; text ") usage. ";
+      text "Pipeline operator is an active early-stage feature proposal that ";
+      text "may change. You may opt in to using it anyway by putting ";
+      code "esproposal.fsharp_pipeline_operator=enable"; text " into the ";
+      code "[options]"; text " section of your "; code ".flowconfig"; text ".";
+    ]
+    in
+    Normal { features }
   | EAssignExportedConstLikeBinding { definition; binding_kind; _ } ->
     let features =
       [
@@ -3678,6 +3693,7 @@ let error_code_of_message err : error_code option =
   | EUnsupportedKeyInObjectType _ -> Some IllegalKey
   | EUnsupportedSetProto _ -> Some CannotWrite
   | EUnsupportedSyntax (_, _) -> Some UnsupportedSyntax
+  | EExperimentalFSharpPipelineOperator _ -> Some UnsupportedSyntax (* TODO Add own error for pipeline *)
   | EMalformedCode _
   | EImplicitInstantiationTemporaryError _
   | EUnusedSuppression _

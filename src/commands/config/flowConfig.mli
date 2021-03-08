@@ -79,6 +79,8 @@ val enforce_well_formed_exports : config -> bool
 
 val enforce_well_formed_exports_includes : config -> string list
 
+val esproposal_fsharp_pipeline_operator: config -> Options.esproposal_feature_mode
+
 val enums : config -> bool
 
 val enums_with_unknown_members : config -> bool

@@ -5435,6 +5435,26 @@ and binary cx loc { Ast.Expression.Binary.operator; left; right; comments } =
           in
           Flow.flow cx (t1, AdderT (use_op, reason, false, t2, t))),
       { operator; left = left_ast; right = right_ast; comments } )
+  | Pipeline ->
+      warn_or_ignore_fsharp_pipeline_operator cx loc;
+      let (((_, arg), _) as arg_ast) = expression cx ~annot:None left in
+      let (((_, f), _) as callee) = expression cx ~annot:None right in
+      let open Ast.Expression in
+      let f = match callee with
+      | _, Unary { Unary.operator = Unary.Await; _ } ->
+        let reason = mk_reason (RCustom "await") loc in
+        Flow.get_builtin cx "$await" reason
+      | _ -> f
+      in
+      let use_op = Op (FunCall {
+        op = mk_reason (RCustom "|>") loc;
+        fn = mk_expression_reason right;
+        args = mk_initial_arguments_reason (loc, { ArgList.arguments = [Expression left]; comments = None });
+        local = true;
+      }) in
+      let reason = mk_reason (RFunctionCall (desc_of_t f)) loc in
+      let lhs_t = func_call cx reason ~use_op f None [Arg arg] in
+      lhs_t, { operator; left = arg_ast; right = callee; comments = None }
 
 and logical cx loc { Ast.Expression.Logical.operator; left; right; comments } =
   let open Ast.Expression.Logical in
@@ -8665,3 +8685,9 @@ and mk_enum cx ~enum_reason enum =
       (DefT (reason, literal_trust (), SymbolT), defaulted_members members, has_unknown_members)
   in
   { enum_id; enum_name = name; members; representation_t; has_unknown_members }
+
+and warn_or_ignore_fsharp_pipeline_operator cx loc =
+  match Context.esproposal_fsharp_pipeline_operator cx with
+  | Options.ESPROPOSAL_ENABLE
+  | Options.ESPROPOSAL_IGNORE -> ()
+  | Options.ESPROPOSAL_WARN -> Flow.add_output cx (Error_message.EExperimentalFSharpPipelineOperator loc)

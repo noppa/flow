@@ -143,6 +143,7 @@ type parse_options = {
   esproposal_export_star_as: bool;  (** enable parsing of `export * as` syntax *)
   esproposal_nullish_coalescing: bool;  (** enable parsing of nullish coalescing (`??`) *)
   esproposal_optional_chaining: bool;  (** enable parsing of optional chaining (`?.`) *)
+  esproposal_fsharp_pipeline_operator: bool;
   types: bool;  (** enable parsing of Flow types *)
   use_strict: bool;  (** treat the file as strict, without needing a "use strict" directive *)
 }
@@ -156,6 +157,7 @@ let default_parse_options =
     esproposal_export_star_as = false;
     esproposal_optional_chaining = false;
     esproposal_nullish_coalescing = false;
+    esproposal_fsharp_pipeline_operator = false;
     types = true;
     use_strict = false;
   }
@@ -186,6 +188,7 @@ type env = {
   allow_await: bool;
   allow_directive: bool;
   allow_super: allowed_super;
+  allow_solo_await      : bool;
   error_callback: (env -> Parse_error.t -> unit) option;
   lex_mode_stack: Lex_mode.t list ref;
   (* lex_env is the lex_env after the single lookahead has been lexed *)
@@ -239,6 +242,7 @@ let init_env ?(token_sink = None) ?(parse_options = None) source content =
     allow_await = false;
     allow_directive = false;
     allow_super = No_super;
+    allow_solo_await = false;
     error_callback = None;
     lex_mode_stack = ref [Lex_mode.NORMAL];
     lex_env = ref lex_env;
@@ -276,6 +280,8 @@ let allow_await env = env.allow_await
 let allow_directive env = env.allow_directive
 
 let allow_super env = env.allow_super
+
+let allow_solo_await env = env.allow_solo_await
 
 let no_in env = env.no_in
 
@@ -375,6 +381,8 @@ let with_allow_await allow_await env = { env with allow_await }
 let with_allow_directive allow_directive env = { env with allow_directive }
 
 let with_allow_super allow_super env = { env with allow_super }
+
+let with_allow_solo_await allow_solo_await env = { env with allow_solo_await }
 
 let with_no_let no_let env = { env with no_let }
 
@@ -807,6 +815,7 @@ module Peek = struct
         | T_COLON
         | T_OR
         | T_AND
+        | T_PIPELINE
         | T_BIT_OR
         | T_BIT_XOR
         | T_BIT_AND
