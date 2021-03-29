@@ -498,6 +498,7 @@ export class TestStepFirstStage extends TestStepFirstOrSecondStage {
               ? expected[1]
               : JSON.stringify(expected[1]),
           ];
+          return expected;
         }
       };
       let doesMatch = (
