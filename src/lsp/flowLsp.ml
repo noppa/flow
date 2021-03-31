@@ -786,10 +786,8 @@ let show_disconnected
   Disconnected { env with d_ienv }
 
 let close_conn (env : connected_env) : unit =
-  try Timeout.shutdown_connection env.c_conn.ic
-  with _ ->
-    ();
-    (try Timeout.close_in_noerr env.c_conn.ic with _ -> ())
+  (try Timeout.shutdown_connection env.c_conn.ic with _ -> ());
+  (try Timeout.close_in_noerr env.c_conn.ic with _ -> ())
 
 (************************************************************************
  ** Tracking                                                           **
