@@ -645,7 +645,7 @@ let do_initialize params : Initialize.result =
           };
         hoverProvider = true;
         completionProvider =
-          Some { resolveProvider = false; completion_triggerCharacters = ["."; " "] };
+          Some { CompletionOptions.resolveProvider = false; triggerCharacters = ["."; " "] };
         signatureHelpProvider = Some { sighelp_triggerCharacters = ["("; ","] };
         definitionProvider = true;
         typeDefinitionProvider = false;
