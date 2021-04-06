@@ -624,6 +624,7 @@ let extract_file_names env json =
          let s = Hh_json.get_string_exn json in
          let abs = Caml.Filename.concat env.watch_root s in
          abs)
+  |> SSet.of_list
 
 let within_backoff_time attempts time =
   let attempts = min attempts 3 in
@@ -785,7 +786,7 @@ let make_mergebase_changed_response env data =
   match extract_mergebase data with
   | None -> Error "Failed to extract mergebase"
   | Some (clock, mergebase) ->
-    let files = set_of_list @@ extract_file_names env data in
+    let files = extract_file_names env data in
     env.clockspec <- clock;
     let response = Changed_merge_base (mergebase, files, clock) in
     Ok (env, response)
@@ -808,7 +809,7 @@ let transform_asynchronous_get_changes_response env data =
           | None ->
             (match Jget.string_opt (Some data) "state-leave" with
             | Some state -> (env, make_state_change_response `Leave state data)
-            | None -> (env, Files_changed (set_of_list @@ extract_file_names env data)))
+            | None -> (env, Files_changed (extract_file_names env data)))
         )
     end
 
@@ -842,7 +843,7 @@ let get_mergebase_and_changes ~timeout instance =
       in
       match extract_mergebase response with
       | Some (_clock, mergebase) ->
-        let changes = set_of_list @@ extract_file_names env response in
+        let changes = extract_file_names env response in
         (env, Ok (mergebase, changes))
       | None -> (env, Error "Failed to extract mergebase from response"))
 
