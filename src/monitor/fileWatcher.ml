@@ -332,7 +332,7 @@ end = struct
 
     let catch _ exn =
       (match Exception.to_exn exn with
-      | Exit.(Exit_with Watchman_failed)
+      | Exit_status.(Exit_with Watchman_failed)
       | Watchman.Watchman_restarted ->
         (* expected error *)
         ()
