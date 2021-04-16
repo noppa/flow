@@ -24,6 +24,8 @@ ifeq ($(OS), Windows_NT)
   AR:=x86_64-w64-mingw32-gcc-ar
 else
   UNAME_S=$(shell uname -s)
+  UNAME_M=$(shell uname -m)
+  SWITCH=ocaml-base-compiler.4.09.1
 endif
 
 # Default to `ocamlbuild -j 0` (unlimited parallelism), but you can limit it
@@ -331,8 +333,12 @@ all-homebrew:
 	export FLOW_RELEASE="1"; \
 	opam init --bare --no-setup --disable-sandboxing && \
 	rm -rf _opam && \
-	opam switch create . --deps-only ocaml-base-compiler.4.09.1 && \
+	opam switch create . --deps-only $(SWITCH) && \
 	opam exec -- make
+
+.PHONY: deps
+deps:
+	[ -d _opam ] || opam switch create . $(SWITCH) --deps-only --yes
 
 clean:
 	if command -v ocamlbuild >/dev/null; then ocamlbuild -clean; fi
