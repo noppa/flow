@@ -23,10 +23,6 @@ exception Timeout
 
 exception Watchman_error of string
 
-exception Read_payload_too_long
-(** Throw this exception when we know there is something to read from
-    the watchman channel, but reading took too long. *)
-
 exception Subscription_canceled_by_watchman
 
 exception Watchman_restarted
@@ -398,34 +394,28 @@ let rec request ~debug_logging ?conn ~timeout json =
     in
     Lwt.return @@ sanitize_watchman_response ~debug_logging line
 
-let has_input ~timeout reader =
-  let fd = Buffered_line_reader_lwt.get_fd reader in
-  match timeout with
-  | None -> Lwt.return @@ Lwt_unix.readable fd
-  | Some timeout ->
-    (try%lwt
-       Lwt_unix.with_timeout timeout @@ fun () ->
-       let%lwt () = Lwt_unix.wait_read fd in
-       Lwt.return true
-     with Lwt_unix.Timeout -> Lwt.return false)
-
-let blocking_read ~debug_logging ~timeout ~conn:(reader, _) =
-  let%lwt ready = has_input ~timeout reader in
-  if not ready then
-    match timeout with
-    | None -> Lwt.return None
-    | _ -> raise Timeout
-  else
-    let%lwt output =
-      try%lwt
-        Lwt_unix.with_timeout 40.0 @@ fun () -> Buffered_line_reader_lwt.get_next_line reader
-      with
-      | Lwt_unix.Timeout ->
-        let () = Hh_logger.log "blocking_read timed out" in
-        raise Read_payload_too_long
-      | End_of_file -> raise (Watchman_error "Connection closed")
-    in
-    Lwt.return @@ Some (sanitize_watchman_response ~debug_logging output)
+let blocking_read ~debug_logging ~conn:(reader, _) =
+  let%lwt () =
+    try%lwt Lwt_unix.wait_read (Buffered_line_reader_lwt.get_fd reader)
+    with Unix.Unix_error (Unix.EBADF, _, _) ->
+      (* this is a curious error. it means that the file descriptor was already
+         closed via `Lwt_unix.close` before we called `wait_read`, and the only
+         place we do that is in `close_connection`. So that suggests that we're
+         calling `Watchman.close` and then still calling `blocking_read` on the
+         same instance again, but it's not clear where; we are cancelling those
+         promises. *)
+      raise (Watchman_error "Connection closed")
+  in
+  let%lwt output =
+    let read_timeout = 40.0 in
+    try%lwt
+      Lwt_unix.with_timeout read_timeout @@ fun () -> Buffered_line_reader_lwt.get_next_line reader
+    with
+    | Lwt_unix.Timeout ->
+      raise (Watchman_error (spf "Timed out reading payload after %f seconds" read_timeout))
+    | End_of_file -> raise (Watchman_error "Connection closed")
+  in
+  Lwt.return @@ Some (sanitize_watchman_response ~debug_logging output)
 
 (****************************************************************************)
 (* Initialization, reinitialization *)
@@ -763,9 +753,6 @@ let call_on_instance :
           log_died
             ("Watchman connection End_of_file.\n" ^ Exception.get_full_backtrace_string 500 exn);
           close_channel_on_instance' env
-        | Read_payload_too_long ->
-          log_died "Watchman reading payload too long. Closing channel";
-          close_channel_on_instance' env
         | Timeout ->
           log_died "Watchman reading Timeout. Closing channel";
           close_channel_on_instance' env
@@ -831,19 +818,14 @@ let transform_asynchronous_get_changes_response env data =
         )
     end
 
-let get_changes ?deadline instance =
+let get_changes instance =
   call_on_instance
     instance
     "get_changes"
     ~on_dead:(fun _ -> Watchman_unavailable)
     ~on_alive:(fun env ->
-      let timeout =
-        Option.map deadline (fun deadline ->
-            let timeout = deadline -. Unix.time () in
-            Float.max timeout 0.0)
-      in
       let debug_logging = env.settings.debug_logging in
-      let%map response = blocking_read ~debug_logging ~timeout ~conn:env.conn in
+      let%map response = blocking_read ~debug_logging ~conn:env.conn in
       let (env, result) = transform_asynchronous_get_changes_response env response in
       (env, Watchman_pushed result))
 
