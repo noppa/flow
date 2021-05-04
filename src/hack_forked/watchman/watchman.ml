@@ -622,7 +622,7 @@ let init settings =
       Hh_logger.exception_ ~prefix:"Watchman init: " exn;
       match Exception.unwrap exn with
       (* Avoid swallowing these *)
-      | Exit.Exit_with _
+      | Exit_status.Exit_with _
       | Watchman_restarted ->
         Exception.reraise exn
       | _ -> Lwt.return None)
@@ -668,7 +668,7 @@ let maybe_restart_instance instance =
         Hh_logger.log "Reestablishing watchman subscription timed out.";
         EventLogger.watchman_connection_reestablishment_failed ();
         Lwt.return (Watchman_dead { dead_env with reinit_attempts = dead_env.reinit_attempts + 1 })
-      | exception ((Exit.Exit_with _ | Watchman_restarted) as exn) ->
+      | exception ((Exit_status.Exit_with _ | Watchman_restarted) as exn) ->
         (* Avoid swallowing these *)
         Exception.reraise (Exception.wrap exn)
       | exception e ->
