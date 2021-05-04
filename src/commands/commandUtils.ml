@@ -1225,8 +1225,7 @@ let make_options
       None
   in
   let opt_abstract_locations =
-    options_flags.abstract_locations
-    || Base.Option.value (FlowConfig.abstract_locations flowconfig) ~default:true
+    options_flags.abstract_locations || FlowConfig.abstract_locations flowconfig
   in
   let opt_wait_for_recheck =
     Base.Option.value
