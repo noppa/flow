@@ -412,24 +412,6 @@ let blocking_read ~debug_logging ~timeout ~conn:(reader, _) =
 (* Initialization, reinitialization *)
 (****************************************************************************)
 
-let with_crash_record_exn source f =
-  catch ~f ~catch:(fun exn ->
-      Hh_logger.exception_ ~prefix:("Watchman " ^ source ^ ": ") exn;
-      Exception.reraise exn)
-
-let with_crash_record_opt source f =
-  catch
-    ~f:(fun () ->
-      let%map v = with_crash_record_exn source f in
-      Some v)
-    ~catch:(fun exn ->
-      match Exception.unwrap exn with
-      (* Avoid swallowing these *)
-      | Exit_status.Exit_with _
-      | Watchman_restarted ->
-        Exception.reraise exn
-      | _ -> Lwt.return None)
-
 (* When we re-init our connection to Watchman, we use the old clockspec to get all the changes
  * since our last response. However, if Watchman has restarted and the old clockspec pre-dates
  * the new Watchman, then we may miss updates.
