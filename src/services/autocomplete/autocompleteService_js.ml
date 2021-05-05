@@ -429,7 +429,6 @@ let completion_item_of_autoimport
       sort_text = sort_text_of_rank 100 (* TODO: use a constant *);
       preselect = false;
       documentation = None;
-      log_info = "autoimport";
     }
 
 let add_locals ~f locals set =
