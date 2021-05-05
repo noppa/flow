@@ -484,7 +484,7 @@ let autocomplete_id
   let ac_loc = loc_of_aloc ~reader ac_loc |> remove_autocomplete_token_from_loc in
   let exact_by_default = Context.exact_by_default cx in
   let identifiers =
-    local_value_identifiers ~options ~reader ~cx ~ac_loc ~file_sig ~typed_ast ~ast ~tparams_rev
+    local_value_identifiers ~options ~reader ~cx ~ac_loc ~file_sig ~typed_ast ~ast ~tparams
   in
   let (items_rev, errors_to_log) =
     identifiers
@@ -518,9 +518,9 @@ let autocomplete_id
         preselect = false;
         documentation = None;
       }
-      :: items
+      :: items_rev
     else
-      items
+      items_rev
   in
   (* "super" is legal inside classes *)
   let items =
@@ -554,7 +554,7 @@ let autocomplete_id
             before
             env.ServerEnv.exports
         in
-        let items_rev =
+        let items =
           append_completion_items_of_autoimports
             ~options
             ~reader
@@ -885,7 +885,7 @@ let autocomplete_unqualified_type
          (tparam_results, [])
   in
   let value_identifiers =
-    local_value_identifiers ~options ~ast ~typed_ast ~reader ~ac_loc ~tparams_rev ~cx ~file_sig
+    local_value_identifiers ~options ~ast ~typed_ast ~reader ~ac_loc ~tparams ~cx ~file_sig
   in
 
   (* The value-level identifiers we suggest in type autocompletion:
