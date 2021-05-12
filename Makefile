@@ -17,8 +17,15 @@ INTERNAL_FLAGS=
 
 ifeq ($(OS), Windows_NT)
   UNAME_S=Windows
+  UNAME_M=
+  SWITCH=ocaml-variants.4.09.1+mingw64c
+  CC:=x86_64-w64-mingw32-gcc
+  CXX:=x86_64-w64-mingw32-g++
+  AR:=x86_64-w64-mingw32-gcc-ar
 else
   UNAME_S=$(shell uname -s)
+  UNAME_M=$(shell uname -m)
+  SWITCH=ocaml-base-compiler.4.09.1
 endif
 
 # Default to `ocamlbuild -j 0` (unlimited parallelism), but you can limit it
@@ -326,11 +333,16 @@ all-homebrew:
 	export FLOW_RELEASE="1"; \
 	opam init --bare --no-setup --disable-sandboxing && \
 	rm -rf _opam && \
-	opam switch create . --deps-only ocaml-base-compiler.4.09.1 && \
+	opam switch create . --deps-only $(SWITCH) && \
 	opam exec -- make
 
+.PHONY: deps
+deps:
+	[ -d _opam ] || opam switch create . $(SWITCH) --deps-only --yes
+
 clean:
-	ocamlbuild -clean
+	if command -v ocamlbuild >/dev/null; then ocamlbuild -clean; fi
+	rm -rf _build
 	rm -rf bin
 	rm -f src/hack_forked/utils/core/get_build_id.gen.c
 	rm -f flow.odocl

@@ -304,6 +304,14 @@ class virtual ['M, 'T, 'N, 'U] mapper :
 
     method jsx_attribute : ('M, 'T) Flow_ast.JSX.Attribute.t -> ('N, 'U) Ast.JSX.Attribute.t
 
+    method jsx_attribute_name : ('M, 'T) Ast.JSX.Attribute.name -> ('N, 'U) Ast.JSX.Attribute.name
+
+    method jsx_attribute_name_identifier :
+      ('M, 'T) Flow_ast.JSX.Identifier.t -> ('N, 'U) Flow_ast.JSX.Identifier.t
+
+    method jsx_attribute_name_namespaced :
+      ('M, 'T) Flow_ast.JSX.NamespacedName.t -> ('N, 'U) Flow_ast.JSX.NamespacedName.t
+
     method jsx_attribute_value :
       ('M, 'T) Ast.JSX.Attribute.value -> ('N, 'U) Ast.JSX.Attribute.value
 
@@ -330,7 +338,19 @@ class virtual ['M, 'T, 'N, 'U] mapper :
     method jsx_member_expression_object :
       ('M, 'T) Ast.JSX.MemberExpression._object -> ('N, 'U) Ast.JSX.MemberExpression._object
 
-    method jsx_name : ('M, 'T) Ast.JSX.name -> ('N, 'U) Ast.JSX.name
+    method jsx_member_expression_identifier :
+      ('M, 'T) Ast.JSX.Identifier.t -> ('N, 'U) Ast.JSX.Identifier.t
+
+    method jsx_element_name : ('M, 'T) Ast.JSX.name -> ('N, 'U) Ast.JSX.name
+
+    method jsx_element_name_identifier :
+      ('M, 'T) Ast.JSX.Identifier.t -> ('N, 'U) Ast.JSX.Identifier.t
+
+    method jsx_element_name_member_expression :
+      ('M, 'T) Ast.JSX.MemberExpression.t -> ('N, 'U) Ast.JSX.MemberExpression.t
+
+    method jsx_element_name_namespaced :
+      ('M, 'T) Ast.JSX.NamespacedName.t -> ('N, 'U) Ast.JSX.NamespacedName.t
 
     method jsx_namespaced_name :
       ('M, 'T) Flow_ast.JSX.NamespacedName.t -> ('N, 'U) Ast.JSX.NamespacedName.t

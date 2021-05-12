@@ -355,6 +355,13 @@ module SignatureHelpClientCapabilities = struct
   and parameterInformation = { labelOffsetSupport: bool }
 end
 
+module CompletionOptions = struct
+  type t = {
+    resolveProvider: bool;  (** server resolves extra info on demand *)
+    triggerCharacters: string list;
+  }
+end
+
 (** Initialize request, method="initialize" *)
 module Initialize = struct
   type textDocumentSyncKind =
@@ -392,7 +399,10 @@ module Initialize = struct
 
   and workspaceClientCapabilities = {
     applyEdit: bool;  (** client supports appling batch edits *)
+    configuration: bool;  (** client supports workspace/configuration requests *)
     workspaceEdit: workspaceEdit;
+    didChangeConfiguration: dynamicRegistration;
+        (** client supports workspace/didChangeConfiguration notifications *)
     didChangeWatchedFiles: dynamicRegistration; (* omitted: other dynamic-registration fields *)
   }
 
@@ -437,7 +447,7 @@ module Initialize = struct
   and server_capabilities = {
     textDocumentSync: textDocumentSyncOptions;  (** how to sync *)
     hoverProvider: bool;
-    completionProvider: completionOptions option;
+    completionProvider: CompletionOptions.t option;
     signatureHelpProvider: signatureHelpOptions option;
     definitionProvider: bool;
     typeDefinitionProvider: bool;
@@ -458,11 +468,6 @@ module Initialize = struct
     rageProvider: bool;  (** nuclide-specific *)
   }
   (** What capabilities the server provides *)
-
-  and completionOptions = {
-    resolveProvider: bool;  (** server resolves extra info on demand *)
-    completion_triggerCharacters: string list;  (** wire "triggerCharacters" *)
-  }
 
   and signatureHelpOptions = {
     sighelp_triggerCharacters: string list;  (** wire "triggerCharacters" *)
@@ -621,6 +626,11 @@ module DidChange = struct
     rangeLength: int option;  (** the length that got replaced *)
     text: string;  (** the new text of the range/document *)
   }
+end
+
+(** Configuration changed notification, method="workspace/didChangeConfiguration" *)
+module DidChangeConfiguration = struct
+  type params = { settings: Hh_json.json }
 end
 
 (** Watched files changed notification, method="workspace/didChangeWatchedFiles" *)
@@ -789,6 +799,18 @@ module CompletionItemResolve = struct
   type params = Completion.completionItem
 
   and result = Completion.completionItem
+end
+
+(* Configuration request, method="workspace/configuration" *)
+module Configuration = struct
+  type params = { items: item list }
+
+  and item = {
+    scope_uri: DocumentUri.t option;
+    section: string option;
+  }
+
+  and result = Hh_json.json list
 end
 
 (* Workspace Symbols request, method="workspace/symbol" *)
@@ -1107,26 +1129,27 @@ module Error = struct
   exception LspException of t
 end
 
-type lsp_registration_options =
-  | DidChangeWatchedFilesRegistrationOptions of DidChangeWatchedFiles.registerOptions
-
-(* Register capability request, method="client/registerCapability" *)
+(** Register capability request, method="client/registerCapability" *)
 module RegisterCapability = struct
   type params = { registrations: registration list }
 
   and registration = {
     id: string;
     method_: string;
-    registerOptions: lsp_registration_options;
+    registerOptions: options;
   }
 
-  let make_registration (registerOptions : lsp_registration_options) : registration =
+  and options =
+    | DidChangeConfiguration  (** has no options *)
+    | DidChangeWatchedFiles of DidChangeWatchedFiles.registerOptions
+
+  let make_registration (registerOptions : options) : registration =
     (* The ID field is arbitrary but unique per type of capability (for future
        deregistering, which we don't do). *)
     let (id, method_) =
       match registerOptions with
-      | DidChangeWatchedFilesRegistrationOptions _ ->
-        ("did-change-watched-files", "workspace/didChangeWatchedFiles")
+      | DidChangeConfiguration -> ("did-change-configuration", "workspace/didChangeConfiguration")
+      | DidChangeWatchedFiles _ -> ("did-change-watched-files", "workspace/didChangeWatchedFiles")
     in
     { id; method_; registerOptions }
 end
@@ -1146,6 +1169,7 @@ type lsp_request =
   | CodeActionRequest of CodeActionRequest.params
   | CompletionRequest of Completion.params
   | CompletionItemResolveRequest of CompletionItemResolve.params
+  | ConfigurationRequest of Configuration.params
   | SignatureHelpRequest of SignatureHelp.params
   | WorkspaceSymbolRequest of WorkspaceSymbol.params
   | DocumentSymbolRequest of DocumentSymbol.params
@@ -1173,6 +1197,7 @@ type lsp_result =
   | CodeActionResult of CodeAction.result
   | CompletionResult of Completion.result
   | CompletionItemResolveResult of CompletionItemResolve.result
+  | ConfigurationResult of Configuration.result
   | SignatureHelpResult of SignatureHelp.result
   | WorkspaceSymbolResult of WorkspaceSymbol.result
   | DocumentSymbolResult of DocumentSymbol.result
@@ -1189,6 +1214,7 @@ type lsp_result =
   | RenameResult of Rename.result
   | DocumentCodeLensResult of DocumentCodeLens.result
   | ExecuteCommandResult of ExecuteCommand.result
+  | RegisterCapabilityResult
   (* the string is a stacktrace *)
   | ErrorResult of Error.t * string
 
@@ -1200,6 +1226,7 @@ type lsp_notification =
   | DidCloseNotification of DidClose.params
   | DidSaveNotification of DidSave.params
   | DidChangeNotification of DidChange.params
+  | DidChangeConfigurationNotification of DidChangeConfiguration.params
   | DidChangeWatchedFilesNotification of DidChangeWatchedFiles.params
   | LogMessageNotification of LogMessage.params
   | TelemetryNotification of LogMessage.params (* LSP allows 'any' but we only send these *)
@@ -1222,6 +1249,8 @@ and 'a lsp_error_handler = Error.t * string -> 'a -> 'a
 and 'a lsp_result_handler =
   | ShowMessageHandler of (ShowMessageRequest.result -> 'a -> 'a)
   | ShowStatusHandler of (ShowStatus.result -> 'a -> 'a)
+  | ConfigurationHandler of (Configuration.result -> 'a -> 'a)
+  | VoidHandler
 
 module IdKey = struct
   type t = lsp_id

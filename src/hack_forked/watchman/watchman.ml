@@ -23,10 +23,6 @@ exception Timeout
 
 exception Watchman_error of string
 
-exception Read_payload_too_long
-(** Throw this exception when we know there is something to read from
-    the watchman channel, but reading took too long. *)
-
 exception Subscription_canceled_by_watchman
 
 exception Watchman_restarted
@@ -114,11 +110,14 @@ let sanitize_watchman_response ~debug_logging output =
     try Hh_json.json_of_string output
     with e ->
       let exn = Exception.wrap e in
-      Hh_logger.error
-        "Failed to parse string as JSON: %s\nEXCEPTION:%s\nSTACK:%s\n"
-        output
-        (Exception.get_ctor_string exn)
-        (Exception.get_backtrace_string exn);
+      let msg = spf "Failed to parse string as JSON: %s" output in
+      EventLogger.watchman_error
+        (spf
+           "%s\nEXCEPTION:%s\nSTACK:%s\n"
+           msg
+           (Exception.get_ctor_string exn)
+           (Exception.get_backtrace_string exn));
+      Hh_logger.error ~exn "%s" msg;
       Exception.reraise exn
   in
   assert_no_error response;
@@ -321,23 +320,26 @@ let get_sockname () =
     let () = EventLogger.watchman_error msg in
     raise (Watchman_error msg)
 
-(* Opens a connection to the watchman process through the socket *)
+(** Opens a connection to the watchman process through the socket *)
 let open_connection () =
   let%lwt sockname = get_sockname () in
   let (ic, oc) =
-    if
-      String.equal Sys.os_type "Unix"
-      (* Yes, I know that Unix.open_connection uses the same fd for input and output. But I don't
-       * want to hardcode that assumption here. So let's pretend like ic and oc might be back by
-       * different fds *)
-    then
-      Unix.open_connection (Unix.ADDR_UNIX sockname)
-    (* On Windows, however, named pipes behave like regular files from the client's perspective.
-     * We just open the file and create in/out channels for it. The file permissions attribute
-     * is not needed because the file should exist already but we have to pass something. *)
-    else
-      let fd = Unix.openfile sockname [Unix.O_RDWR] 0o640 in
-      (Unix.in_channel_of_descr fd, Unix.out_channel_of_descr fd)
+    try
+      if Sys.unix then
+        (* Yes, I know that Unix.open_connection uses the same fd for input and output. But I don't
+         * want to hardcode that assumption here. So let's pretend like ic and oc might be back by
+         * different fds *)
+        Unix.open_connection (Unix.ADDR_UNIX sockname)
+      else
+        (* On Windows, however, named pipes behave like regular files from the client's perspective.
+         * We just open the file and create in/out channels for it. The file permissions attribute
+         * is not needed because the file should exist already but we have to pass something. *)
+        let fd = Unix.openfile sockname [Unix.O_RDWR] 0o640 in
+        (Unix.in_channel_of_descr fd, Unix.out_channel_of_descr fd)
+    with Unix.Unix_error (error, _, _) ->
+      let msg = spf "%s (socket: %s)" (Unix.error_message error) sockname in
+      EventLogger.watchman_error msg;
+      raise (Watchman_error msg)
   in
   let reader =
     Unix.descr_of_in_channel ic
@@ -352,11 +354,21 @@ let open_connection () =
   Lwt.return (reader, oc)
 
 let close_connection (reader, oc) =
-  let%lwt () = Lwt_unix.close @@ Buffered_line_reader_lwt.get_fd reader in
-  (* As mention above, if we open the connection with Unix.open_connection, we use a single fd for
-   * both input and output. That means we might be trying to close it twice here. If so, this
-   * second close with throw. So let's catch that exception and ignore it. *)
-  try%lwt Lwt_io.close oc with Unix.Unix_error (Unix.EBADF, _, _) -> Lwt.return_unit
+  let ic = Buffered_line_reader_lwt.get_fd reader in
+  let%lwt () =
+    (* We call [close_connection] in [with_watchman_conn] even on error. Sometimes
+       those errors are because the connection was closed unexpectedly, so we should
+      ignore an already-closed connection (BADF) here. *)
+    try%lwt Lwt_unix.close ic with Unix.Unix_error (Unix.EBADF, _, _) -> Lwt.return_unit
+  in
+  let%lwt () =
+    (* As mention in [open_connection], if we open the connection with [Unix.open_connection],
+       we use a single fd for both input and output. That means we might be trying to close
+       it twice here. If so, this second close with throw. So let's catch that exception and
+       ignore it. *)
+    try%lwt Lwt_io.close oc with Unix.Unix_error (Unix.EBADF, _, _) -> Lwt.return_unit
+  in
+  Lwt.return_unit
 
 let with_watchman_conn ~timeout f =
   let%lwt conn = with_timeout timeout open_connection in
@@ -382,53 +394,32 @@ let rec request ~debug_logging ?conn ~timeout json =
     in
     Lwt.return @@ sanitize_watchman_response ~debug_logging line
 
-let has_input ~timeout reader =
-  let fd = Buffered_line_reader_lwt.get_fd reader in
-  match timeout with
-  | None -> Lwt.return @@ Lwt_unix.readable fd
-  | Some timeout ->
-    (try%lwt
-       Lwt_unix.with_timeout timeout @@ fun () ->
-       let%lwt () = Lwt_unix.wait_read fd in
-       Lwt.return true
-     with Lwt_unix.Timeout -> Lwt.return false)
-
-let blocking_read ~debug_logging ~timeout ~conn:(reader, _) =
-  let%lwt ready = has_input ~timeout reader in
-  if not ready then
-    match timeout with
-    | None -> Lwt.return None
-    | _ -> raise Timeout
-  else
-    let%lwt output =
-      try%lwt Lwt_unix.with_timeout 40.0 @@ fun () -> Buffered_line_reader_lwt.get_next_line reader
-      with Lwt_unix.Timeout ->
-        let () = Hh_logger.log "blocking_read timed out" in
-        raise Read_payload_too_long
-    in
-    Lwt.return @@ Some (sanitize_watchman_response ~debug_logging output)
+let blocking_read ~debug_logging ~conn:(reader, _) =
+  let%lwt () =
+    try%lwt Lwt_unix.wait_read (Buffered_line_reader_lwt.get_fd reader)
+    with Unix.Unix_error (Unix.EBADF, _, _) ->
+      (* this is a curious error. it means that the file descriptor was already
+         closed via `Lwt_unix.close` before we called `wait_read`, and the only
+         place we do that is in `close_connection`. So that suggests that we're
+         calling `Watchman.close` and then still calling `blocking_read` on the
+         same instance again, but it's not clear where; we are cancelling those
+         promises. *)
+      raise (Watchman_error "Connection closed")
+  in
+  let%lwt output =
+    let read_timeout = 40.0 in
+    try%lwt
+      Lwt_unix.with_timeout read_timeout @@ fun () -> Buffered_line_reader_lwt.get_next_line reader
+    with
+    | Lwt_unix.Timeout ->
+      raise (Watchman_error (spf "Timed out reading payload after %f seconds" read_timeout))
+    | End_of_file -> raise (Watchman_error "Connection closed")
+  in
+  Lwt.return @@ Some (sanitize_watchman_response ~debug_logging output)
 
 (****************************************************************************)
-(* Initialization, reinitialization, and crash-tracking. *)
+(* Initialization, reinitialization *)
 (****************************************************************************)
-
-let with_crash_record_exn source f =
-  catch ~f ~catch:(fun exn ->
-      Hh_logger.exception_ ~prefix:("Watchman " ^ source ^ ": ") exn;
-      Exception.reraise exn)
-
-let with_crash_record_opt source f =
-  catch
-    ~f:(fun () ->
-      let%map v = with_crash_record_exn source f in
-      Some v)
-    ~catch:(fun exn ->
-      match Exception.unwrap exn with
-      (* Avoid swallowing these *)
-      | Exit_status.Exit_with _
-      | Watchman_restarted ->
-        Exception.reraise exn
-      | _ -> Lwt.return None)
 
 (* When we re-init our connection to Watchman, we use the old clockspec to get all the changes
  * since our last response. However, if Watchman has restarted and the old clockspec pre-dates
@@ -494,7 +485,6 @@ let re_init
       subscription_prefix;
       sync_timeout;
     } =
-  with_crash_record_opt "init" @@ fun () ->
   let%bind conn = open_connection () in
   let%bind (watched_path_expression_terms, watch_roots, failed_paths) =
     Lwt_list.fold_left_s
@@ -614,7 +604,19 @@ let re_init
   ignore response;
   env
 
-let init settings = re_init settings
+let init settings =
+  catch
+    ~f:(fun () ->
+      let%map v = re_init settings in
+      Some (Watchman_alive v))
+    ~catch:(fun exn ->
+      Hh_logger.exception_ ~prefix:"Watchman init: " exn;
+      match Exception.unwrap exn with
+      (* Avoid swallowing these *)
+      | Exit_status.Exit_with _
+      | Watchman_restarted ->
+        Exception.reraise exn
+      | _ -> Lwt.return None)
 
 let extract_file_names env json =
   let open Hh_json.Access in
@@ -628,6 +630,7 @@ let extract_file_names env json =
          let s = Hh_json.get_string_exn json in
          let abs = Caml.Filename.concat env.watch_root s in
          abs)
+  |> SSet.of_list
 
 let within_backoff_time attempts time =
   let attempts = min attempts 3 in
@@ -644,30 +647,39 @@ let maybe_restart_instance instance =
     else if within_backoff_time dead_env.reinit_attempts dead_env.dead_since then (
       let () = Hh_logger.log "Attemping to reestablish watchman subscription" in
       (* TODO: don't hardcode this timeout *)
-      let timeout = Some 120. in
+      let timeout = 120. in
       match%lwt
-        with_timeout timeout @@ fun () ->
+        with_timeout (Some timeout) @@ fun () ->
         re_init ~prior_clockspec:dead_env.prior_clockspec dead_env.prior_settings
       with
-      | exception Timeout ->
-        Hh_logger.log "Reestablishing watchman subscription timed out.";
-        EventLogger.watchman_connection_reestablishment_failed ();
-        Lwt.return (Watchman_dead { dead_env with reinit_attempts = dead_env.reinit_attempts + 1 })
-      | None ->
-        Hh_logger.log "Reestablishing watchman subscription failed.";
-        EventLogger.watchman_connection_reestablishment_failed ();
-        Lwt.return (Watchman_dead { dead_env with reinit_attempts = dead_env.reinit_attempts + 1 })
-      | Some env ->
+      | env ->
         Hh_logger.log "Watchman connection reestablished.";
         EventLogger.watchman_connection_reestablished ();
         Lwt.return (Watchman_alive env)
+      | exception Timeout ->
+        Hh_logger.log "Reestablishing watchman subscription timed out.";
+        EventLogger.watchman_connection_reestablishment_failed
+          (spf "Timed out after %f seconds" timeout);
+        Lwt.return (Watchman_dead { dead_env with reinit_attempts = dead_env.reinit_attempts + 1 })
+      | exception ((Lwt.Canceled | Exit_status.Exit_with _ | Watchman_restarted) as exn) ->
+        (* Avoid swallowing these *)
+        Exception.reraise (Exception.wrap exn)
+      | exception e ->
+        let exn = Exception.wrap e in
+        Hh_logger.exception_ ~prefix:"Reestablishing watchman subscription failed: " exn;
+        let exn_str =
+          Printf.sprintf
+            "%s\nBacktrace: %s"
+            (Exception.get_ctor_string exn)
+            (Exception.get_full_backtrace_string 500 exn)
+        in
+        EventLogger.watchman_connection_reestablishment_failed exn_str;
+        Lwt.return (Watchman_dead { dead_env with reinit_attempts = dead_env.reinit_attempts + 1 })
     ) else
       Lwt.return instance
 
-let close env = close_connection env.conn
-
 let close_channel_on_instance env =
-  let%map () = close env in
+  let%map () = close_connection env.conn in
   dead_env_from_alive env
 
 let with_instance instance ~try_to_restart ~on_alive ~on_dead =
@@ -680,6 +692,13 @@ let with_instance instance ~try_to_restart ~on_alive ~on_dead =
   match instance with
   | Watchman_dead dead_env -> on_dead dead_env
   | Watchman_alive env -> on_alive env
+
+let close instance =
+  with_instance
+    instance
+    ~try_to_restart:false
+    ~on_alive:(fun env -> close_connection env.conn)
+    ~on_dead:(fun _ -> Lwt.return_unit)
 
 (** Calls f on the instance, maybe restarting it if its dead and maybe
    * reverting it to a dead state if things go south. For example, if watchman
@@ -698,9 +717,10 @@ let call_on_instance :
   let on_alive' ~on_dead source f env =
     catch
       ~f:(fun () ->
-        let%map (env, result) = with_crash_record_exn source (fun () -> f env) in
+        let%map (env, result) = f env in
         (Watchman_alive env, result))
       ~catch:(fun exn ->
+        Hh_logger.exception_ ~prefix:("Watchman " ^ source ^ ": ") exn;
         let close_channel_on_instance' env =
           let%bind env = close_channel_on_instance env in
           on_dead' on_dead env
@@ -711,10 +731,11 @@ let call_on_instance :
         in
         match Exception.unwrap exn with
         | Sys_error msg when String.equal msg "Broken pipe" ->
-          log_died "Watchman Pipe broken.";
+          log_died ("Watchman Pipe broken.\n" ^ Exception.get_full_backtrace_string 500 exn);
           close_channel_on_instance' env
         | Sys_error msg when String.equal msg "Connection reset by peer" ->
-          log_died "Watchman connection reset by peer.";
+          log_died
+            ("Watchman connection reset by peer.\n" ^ Exception.get_full_backtrace_string 500 exn);
           close_channel_on_instance' env
         | Sys_error msg when String.equal msg "Bad file descriptor" ->
           (* This happens when watchman is tearing itself down after we
@@ -726,13 +747,11 @@ let call_on_instance :
            * file descriptor of it). I'm pretty sure we don't need to close the
            * channel when that happens since we never had a useable channel
            * to start with. *)
-          log_died "Watchman bad file descriptor.";
+          log_died ("Watchman bad file descriptor.\n" ^ Exception.get_full_backtrace_string 500 exn);
           on_dead' on_dead (dead_env_from_alive env)
         | End_of_file ->
-          log_died "Watchman connection End_of_file. Closing channel";
-          close_channel_on_instance' env
-        | Read_payload_too_long ->
-          log_died "Watchman reading payload too long. Closing channel";
+          log_died
+            ("Watchman connection End_of_file.\n" ^ Exception.get_full_backtrace_string 500 exn);
           close_channel_on_instance' env
         | Timeout ->
           log_died "Watchman reading Timeout. Closing channel";
@@ -740,10 +759,10 @@ let call_on_instance :
         | Watchman_error msg ->
           log_died (Printf.sprintf "Watchman error: %s. Closing channel" msg);
           close_channel_on_instance' env
-        | _ ->
-          let msg = Exception.to_string exn in
-          EventLogger.watchman_uncaught_failure msg;
-          raise Exit_status.(Exit_with Watchman_failed))
+        | Subscription_canceled_by_watchman ->
+          log_died "Watchman cancelled our subscription. Closing channel";
+          close_channel_on_instance' env
+        | _ -> Exception.reraise exn)
   in
   fun instance source ~on_dead ~on_alive ->
     with_instance
@@ -772,7 +791,7 @@ let make_mergebase_changed_response env data =
   match extract_mergebase data with
   | None -> Error "Failed to extract mergebase"
   | Some (clock, mergebase) ->
-    let files = set_of_list @@ extract_file_names env data in
+    let files = extract_file_names env data in
     env.clockspec <- clock;
     let response = Changed_merge_base (mergebase, files, clock) in
     Ok (env, response)
@@ -795,50 +814,20 @@ let transform_asynchronous_get_changes_response env data =
           | None ->
             (match Jget.string_opt (Some data) "state-leave" with
             | Some state -> (env, make_state_change_response `Leave state data)
-            | None -> (env, Files_changed (set_of_list @@ extract_file_names env data)))
+            | None -> (env, Files_changed (extract_file_names env data)))
         )
     end
 
-let get_changes ?deadline instance =
+let get_changes instance =
   call_on_instance
     instance
     "get_changes"
     ~on_dead:(fun _ -> Watchman_unavailable)
     ~on_alive:(fun env ->
-      let timeout =
-        Option.map deadline (fun deadline ->
-            let timeout = deadline -. Unix.time () in
-            Float.max timeout 0.0)
-      in
       let debug_logging = env.settings.debug_logging in
-      let%map response = blocking_read ~debug_logging ~timeout ~conn:env.conn in
+      let%map response = blocking_read ~debug_logging ~conn:env.conn in
       let (env, result) = transform_asynchronous_get_changes_response env response in
       (env, Watchman_pushed result))
-
-let get_changes_since_mergebase ~timeout env =
-  let%map response =
-    request
-      ~timeout
-      ~debug_logging:env.settings.debug_logging
-      (get_changes_since_mergebase_query env)
-  in
-  extract_file_names env response
-
-let get_mergebase ~timeout instance =
-  call_on_instance
-    instance
-    "get_mergebase"
-    ~on_dead:(fun _dead_env -> Error "Failed to connect to Watchman to get mergebase")
-    ~on_alive:(fun env ->
-      let%map response =
-        request
-          ~timeout
-          ~debug_logging:env.settings.debug_logging
-          (get_changes_since_mergebase_query env)
-      in
-      match extract_mergebase response with
-      | Some (_clock, mergebase) -> (env, Ok mergebase)
-      | None -> (env, Error "Failed to extract mergebase from response"))
 
 let get_mergebase_and_changes ~timeout instance =
   call_on_instance
@@ -854,15 +843,13 @@ let get_mergebase_and_changes ~timeout instance =
       in
       match extract_mergebase response with
       | Some (_clock, mergebase) ->
-        let changes = set_of_list @@ extract_file_names env response in
+        let changes = extract_file_names env response in
         (env, Ok (mergebase, changes))
       | None -> (env, Error "Failed to extract mergebase from response"))
 
-let conn_of_instance = function
-  | Watchman_dead _ -> None
-  | Watchman_alive { conn; _ } -> Some conn
-
 module Testing = struct
+  type nonrec env = env
+
   let test_settings =
     {
       debug_logging = false;

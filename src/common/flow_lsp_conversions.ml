@@ -160,26 +160,8 @@ let lsp_DocumentIdentifier_to_flow_path textDocument =
   let fn = Lsp_helpers.lsp_textDocumentIdentifier_to_filename textDocument in
   Sys_utils.realpath fn |> Base.Option.value ~default:fn
 
-let lsp_DocumentIdentifier_to_flow
-    (textDocument : Lsp.TextDocumentIdentifier.t) ~(client : Persistent_connection.single_client) :
-    File_input.t =
-  lsp_DocumentIdentifier_to_flow_path textDocument |> Persistent_connection.get_file client
-
-let lsp_DocumentPosition_to_flow
-    (params : Lsp.TextDocumentPositionParams.t) ~(client : Persistent_connection.single_client) :
-    File_input.t * int * int =
-  let { Lsp.TextDocumentPositionParams.textDocument; position } = params in
-  let file = lsp_DocumentIdentifier_to_flow textDocument client in
-  let (line, char) = lsp_position_to_flow position in
-  (file, line, char)
-
-let lsp_textDocument_and_range_to_flow
-    ?(file_key_of_path = (fun p -> File_key.SourceFile p)) td range client =
-  let path = lsp_DocumentIdentifier_to_flow_path td in
-  let file_key = file_key_of_path path in
-  let file = Persistent_connection.get_file client path in
-  let loc = lsp_range_to_flow_loc ~source:file_key range in
-  (file_key, file, loc)
+let position_of_document_position { Lsp.TextDocumentPositionParams.position; _ } =
+  lsp_position_to_flow position
 
 module DocumentSymbols = struct
   let name_of_key (key : (Loc.t, Loc.t) Ast.Expression.Object.Property.key) : string option =
@@ -417,3 +399,42 @@ let flow_ast_to_lsp_symbols ~(uri : Lsp.DocumentUri.t) (program : (Loc.t, Loc.t)
     Lsp.SymbolInformation.t list =
   let (_loc, { Ast.Program.statements; _ }) = program in
   Base.List.fold statements ~init:[] ~f:(DocumentSymbols.ast_statement ~uri ~containerName:None)
+
+let diagnostics_of_flow_errors =
+  let error_to_lsp
+      ~(severity : Lsp.PublishDiagnostics.diagnosticSeverity) (error : Loc.t Errors.printable_error)
+      : (Lsp.DocumentUri.t * Lsp.PublishDiagnostics.diagnostic) option =
+    let error = Errors.Lsp_output.lsp_of_error error in
+    match loc_to_lsp error.Errors.Lsp_output.loc with
+    | Ok location ->
+      let uri = location.Lsp.Location.uri in
+      let related_to_lsp (loc, relatedMessage) =
+        match loc_to_lsp loc with
+        | Ok relatedLocation -> Some { Lsp.PublishDiagnostics.relatedLocation; relatedMessage }
+        | Error _ -> None
+      in
+      let relatedInformation =
+        Base.List.filter_map error.Errors.Lsp_output.relatedLocations ~f:related_to_lsp
+      in
+      Some
+        ( uri,
+          {
+            Lsp.PublishDiagnostics.range = location.Lsp.Location.range;
+            severity = Some severity;
+            code = Lsp.PublishDiagnostics.StringCode error.Errors.Lsp_output.code;
+            source = Some "Flow";
+            message = error.Errors.Lsp_output.message;
+            relatedInformation;
+            relatedLocations = relatedInformation (* legacy fb extension *);
+          } )
+    | Error _ -> None
+  in
+  fun ~errors ~warnings ->
+    let add severity error acc =
+      match error_to_lsp ~severity error with
+      | Some (uri, diagnostic) -> Lsp.UriMap.add ~combine:List.append uri [diagnostic] acc
+      | None -> acc
+    in
+    Lsp.UriMap.empty
+    |> Errors.ConcreteLocPrintableErrorSet.fold (add Lsp.PublishDiagnostics.Error) errors
+    |> Errors.ConcreteLocPrintableErrorSet.fold (add Lsp.PublishDiagnostics.Warning) warnings

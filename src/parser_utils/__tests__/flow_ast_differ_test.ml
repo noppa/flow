@@ -144,7 +144,7 @@ class useless_mapper =
     method! jsx_opening_element (elem : (Loc.t, Loc.t) Ast.JSX.Opening.t) =
       let open Ast.JSX.Opening in
       let (loc, { name; self_closing; attributes }) = elem in
-      let name' = this#jsx_name name in
+      let name' = this#jsx_element_name name in
       let self_closing' =
         match name' with
         | Ast.JSX.Identifier (_, { Ast.JSX.Identifier.name = id_name; comments = _ }) ->
@@ -196,10 +196,10 @@ class useless_mapper =
           child
       | _ -> super#jsx_child child
 
-    method! variance (variance : Loc.t Ast.Variance.t option) =
+    method! variance (variance : Loc.t Ast.Variance.t) =
       let open Ast.Variance in
       match variance with
-      | Some (loc, { kind = Minus; comments }) -> Some (loc, { kind = Plus; comments })
+      | (loc, { kind = Minus; comments }) -> (loc, { kind = Plus; comments })
       | _ -> variance
 
     method! call_type_args (loc, targs) =
@@ -236,7 +236,7 @@ class useless_mapper =
       let ((loc, opt') as opt) = super#object_property_type opt in
       let { key; variance; _ } = opt' in
       let key' = this#object_key key in
-      let variance' = this#variance variance in
+      let variance' = this#variance_opt variance in
       if key' == key && variance' == variance then
         opt
       else
@@ -266,14 +266,14 @@ class insert_variance_mapper =
       let open Ast.Type.TypeParam in
       let ((loc, tparam') as orig) = super#type_param tparam in
       let { variance; _ } = tparam' in
-      let variance' = this#variance_ loc variance in
+      let variance' = this#variance_opt_ loc variance in
       if variance == variance' then
         orig
       else
         (loc, { tparam' with variance = variance' })
 
     (* New variance method with a different type signature that allows us to insert a loc *)
-    method variance_ (loc : Loc.t) (variance : Loc.t Ast.Variance.t option) =
+    method variance_opt_ (loc : Loc.t) (variance : Loc.t Ast.Variance.t option) =
       let open Ast.Variance in
       match variance with
       | None -> Some (loc, { kind = Plus; comments = None })
@@ -284,7 +284,7 @@ class delete_variance_mapper =
   object
     inherit [Loc.t] Flow_ast_mapper.mapper
 
-    method! variance (variance : Loc.t Ast.Variance.t option) =
+    method! variance_opt (variance : Loc.t Ast.Variance.t option) =
       let open Ast.Variance in
       match variance with
       | Some (_loc, { kind = Minus; comments = _ }) -> None
@@ -335,7 +335,6 @@ class insert_import_mapper =
     method! statement_list stmts =
       if List.length stmts > 0 then
         let open Ast.Statement.ImportDeclaration in
-        let open Ast.StringLiteral in
         let stmts = super#statement_list stmts in
         let (loc, _) = List.hd stmts in
         let imp =
@@ -343,7 +342,7 @@ class insert_import_mapper =
             Ast.Statement.ImportDeclaration
               {
                 import_kind = Ast.Statement.ImportDeclaration.ImportValue;
-                source = (loc, { value = "baz"; raw = "\"baz\""; comments = None });
+                source = (loc, { Ast.StringLiteral.value = "baz"; raw = "\"baz\""; comments = None });
                 default = None;
                 specifiers =
                   Some
@@ -370,7 +369,6 @@ class insert_second_import_mapper =
     method! statement_list stmts =
       if List.length stmts > 0 then
         let open Ast.Statement.ImportDeclaration in
-        let open Ast.StringLiteral in
         let stmts = super#statement_list stmts in
         let (loc, _) = List.hd stmts in
         let imp =
@@ -378,7 +376,7 @@ class insert_second_import_mapper =
             Ast.Statement.ImportDeclaration
               {
                 import_kind = Ast.Statement.ImportDeclaration.ImportValue;
-                source = (loc, { value = "baz"; raw = "\"baz\""; comments = None });
+                source = (loc, { Ast.StringLiteral.value = "baz"; raw = "\"baz\""; comments = None });
                 default = None;
                 specifiers =
                   Some
@@ -405,8 +403,6 @@ class insert_second_cjsimport_mapper =
     method! statement_list stmts =
       if List.length stmts > 0 then
         let open Ast.Statement.Expression in
-        let open Ast.Expression.Call in
-        let open Ast.Literal in
         let stmts = super#statement_list stmts in
         let (loc, _) = List.hd stmts in
         let imp =
@@ -417,7 +413,7 @@ class insert_second_cjsimport_mapper =
                   ( loc,
                     Ast.Expression.Call
                       {
-                        callee =
+                        Ast.Expression.Call.callee =
                           ( loc,
                             Ast.Expression.Identifier
                               (Flow_ast_utils.ident_of_source (loc, "require")) );
@@ -431,7 +427,7 @@ class insert_second_cjsimport_mapper =
                                     ( loc,
                                       Ast.Expression.Literal
                                         {
-                                          value = Ast.Literal.String "baz";
+                                          Ast.Literal.value = Ast.Literal.String "baz";
                                           raw = "\"baz\"";
                                           comments = None;
                                         } );
@@ -456,8 +452,6 @@ class add_body_mapper =
     method! statement_list stmts =
       if List.length stmts > 0 then
         let open Ast.Statement.Expression in
-        let open Ast.Expression.Call in
-        let open Ast.Literal in
         let stmts = super#statement_list stmts in
         let (loc, _) = List.rev stmts |> List.hd in
         let imp =
@@ -468,7 +462,7 @@ class add_body_mapper =
                   ( loc,
                     Ast.Expression.Call
                       {
-                        callee =
+                        Ast.Expression.Call.callee =
                           ( loc,
                             Ast.Expression.Identifier (Flow_ast_utils.ident_of_source (loc, "foo"))
                           );
@@ -482,7 +476,7 @@ class add_body_mapper =
                                     ( loc,
                                       Ast.Expression.Literal
                                         {
-                                          value = Ast.Literal.String "baz";
+                                          Ast.Literal.value = Ast.Literal.String "baz";
                                           raw = "\"baz\"";
                                           comments = None;
                                         } );
@@ -713,12 +707,11 @@ class true_to_false_mapper =
       | _ -> expr
 
     method! type_annotation (annot : (Loc.t, Loc.t) Ast.Type.annotation) =
-      let open Ast.Type in
       let (t1, a) = annot in
       let (t2, right_var) = a in
       match right_var with
-      | BooleanLiteral { Ast.BooleanLiteral.value = true; comments } ->
-        (t1, (t2, BooleanLiteral { Ast.BooleanLiteral.value = false; comments }))
+      | Ast.Type.BooleanLiteral { Ast.BooleanLiteral.value = true; comments } ->
+        (t1, (t2, Ast.Type.BooleanLiteral { Ast.BooleanLiteral.value = false; comments }))
       | _ -> annot
   end
 

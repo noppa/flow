@@ -14,7 +14,7 @@ type summary_info =
   | RecheckSummary of {
       dependent_file_count: int;
       changed_file_count: int;
-      top_cycle: (File_key.t * int) option; (* name of cycle leader, and size of cycle *)
+      top_cycle: (File_key.t * int) option;  (** name of cycle leader, and size of cycle *)
     }
   | CommandSummary of string
   | InitSummary
@@ -23,6 +23,8 @@ type summary = {
   duration: float;
   info: summary_info;
 }
+
+type deadline = float
 
 type event =
   | Ready
@@ -34,7 +36,6 @@ type event =
   | Resolving_dependencies_progress
   | Calculating_dependencies_progress
   | Merging_progress of progress
-  | Merging_types_progress of progress
   | Checking_progress of progress
   | Canceling_progress of progress
   | Finishing_up of summary
@@ -42,7 +43,7 @@ type event =
   | Handling_request_start
   | GC_start
   | Collating_errors_start
-  | Watchman_wait_start of float option
+  | Watchman_wait_start of deadline option
 
 type status
 

@@ -252,6 +252,13 @@ module SignatureHelpClientCapabilities : sig
   and parameterInformation = { labelOffsetSupport: bool }
 end
 
+module CompletionOptions : sig
+  type t = {
+    resolveProvider: bool;  (** server resolves extra info on demand *)
+    triggerCharacters: string list;
+  }
+end
+
 module Initialize : sig
   type textDocumentSyncKind =
     | NoSync [@value 0]
@@ -288,7 +295,9 @@ module Initialize : sig
 
   and workspaceClientCapabilities = {
     applyEdit: bool;
+    configuration: bool;
     workspaceEdit: workspaceEdit;
+    didChangeConfiguration: dynamicRegistration;
     didChangeWatchedFiles: dynamicRegistration;
   }
 
@@ -323,7 +332,7 @@ module Initialize : sig
   and server_capabilities = {
     textDocumentSync: textDocumentSyncOptions;
     hoverProvider: bool;
-    completionProvider: completionOptions option;
+    completionProvider: CompletionOptions.t option;
     signatureHelpProvider: signatureHelpOptions option;
     definitionProvider: bool;
     typeDefinitionProvider: bool;
@@ -342,11 +351,6 @@ module Initialize : sig
     implementationProvider: bool;
     typeCoverageProvider: bool;
     rageProvider: bool;
-  }
-
-  and completionOptions = {
-    resolveProvider: bool;
-    completion_triggerCharacters: string list;
   }
 
   and signatureHelpOptions = { sighelp_triggerCharacters: string list }
@@ -486,6 +490,10 @@ module DidChange : sig
     rangeLength: int option;
     text: string;
   }
+end
+
+module DidChangeConfiguration : sig
+  type params = { settings: Hh_json.json }
 end
 
 module DidChangeWatchedFiles : sig
@@ -633,6 +641,17 @@ module CompletionItemResolve : sig
   type params = Completion.completionItem
 
   and result = Completion.completionItem
+end
+
+module Configuration : sig
+  type params = { items: item list }
+
+  and item = {
+    scope_uri: DocumentUri.t option;
+    section: string option;
+  }
+
+  and result = Hh_json.json list
 end
 
 module WorkspaceSymbol : sig
@@ -917,19 +936,20 @@ module Error : sig
   exception LspException of t
 end
 
-type lsp_registration_options =
-  | DidChangeWatchedFilesRegistrationOptions of DidChangeWatchedFiles.registerOptions
-
 module RegisterCapability : sig
   type params = { registrations: registration list }
 
   and registration = {
     id: string;
     method_: string;
-    registerOptions: lsp_registration_options;
+    registerOptions: options;
   }
 
-  val make_registration : lsp_registration_options -> registration
+  and options =
+    | DidChangeConfiguration  (** has no options *)
+    | DidChangeWatchedFiles of DidChangeWatchedFiles.registerOptions
+
+  val make_registration : options -> registration
 end
 
 type lsp_request =
@@ -943,6 +963,7 @@ type lsp_request =
   | CodeActionRequest of CodeActionRequest.params
   | CompletionRequest of Completion.params
   | CompletionItemResolveRequest of CompletionItemResolve.params
+  | ConfigurationRequest of Configuration.params
   | SignatureHelpRequest of SignatureHelp.params
   | WorkspaceSymbolRequest of WorkspaceSymbol.params
   | DocumentSymbolRequest of DocumentSymbol.params
@@ -970,6 +991,7 @@ type lsp_result =
   | CodeActionResult of CodeAction.result
   | CompletionResult of Completion.result
   | CompletionItemResolveResult of CompletionItemResolve.result
+  | ConfigurationResult of Configuration.result
   | SignatureHelpResult of SignatureHelp.result
   | WorkspaceSymbolResult of WorkspaceSymbol.result
   | DocumentSymbolResult of DocumentSymbol.result
@@ -986,6 +1008,7 @@ type lsp_result =
   | RenameResult of Rename.result
   | DocumentCodeLensResult of DocumentCodeLens.result
   | ExecuteCommandResult of ExecuteCommand.result
+  | RegisterCapabilityResult
   (* the string is a stacktrace *)
   | ErrorResult of Error.t * string
 
@@ -997,6 +1020,7 @@ type lsp_notification =
   | DidCloseNotification of DidClose.params
   | DidSaveNotification of DidSave.params
   | DidChangeNotification of DidChange.params
+  | DidChangeConfigurationNotification of DidChangeConfiguration.params
   | DidChangeWatchedFilesNotification of DidChangeWatchedFiles.params
   | LogMessageNotification of LogMessage.params
   | TelemetryNotification of LogMessage.params (* LSP allows 'any' but we only send these *)
@@ -1019,6 +1043,8 @@ and 'a lsp_error_handler = Error.t * string -> 'a -> 'a
 and 'a lsp_result_handler =
   | ShowMessageHandler of (ShowMessageRequest.result -> 'a -> 'a)
   | ShowStatusHandler of (ShowStatus.result -> 'a -> 'a)
+  | ConfigurationHandler of (Configuration.result -> 'a -> 'a)
+  | VoidHandler
 
 module IdKey : sig
   type t = lsp_id

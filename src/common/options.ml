@@ -50,6 +50,16 @@ type react_runtime =
 
 type format = { opt_single_quotes: bool }
 
+type gc_control = {
+  gc_minor_heap_size: int option;
+  gc_major_heap_increment: int option;
+  gc_space_overhead: int option;
+  gc_window_size: int option;
+  gc_custom_major_ratio: int option;
+  gc_custom_minor_ratio: int option;
+  gc_custom_minor_max_size: int option;
+}
+
 type t = {
   opt_abstract_locations: bool;
   opt_all: bool;
@@ -73,6 +83,7 @@ type t = {
   opt_flowconfig_name: string;
   opt_flowconfig_hash: string;
   opt_format: format;
+  opt_gc_worker: gc_control;
   opt_haste_module_ref_prefix: string option;
   opt_haste_name_reducers: (Str.regexp * string) list;
   opt_haste_paths_excludes: string list;
@@ -219,6 +230,8 @@ let root_name opts = opts.opt_root_name
 let facebook_fbs opts = opts.opt_facebook_fbs
 
 let facebook_module_interop opts = opts.opt_facebook_module_interop
+
+let gc_worker opts = opts.opt_gc_worker
 
 let run_post_inference_implicit_instantiation opts =
   opts.opt_run_post_inference_implicit_instantiation

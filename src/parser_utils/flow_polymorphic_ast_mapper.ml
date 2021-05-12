@@ -1306,14 +1306,14 @@ class virtual ['M, 'T, 'N, 'U] mapper =
     method jsx_opening_element (elem : ('M, 'T) Ast.JSX.Opening.t) : ('N, 'U) Ast.JSX.Opening.t =
       let open Ast.JSX.Opening in
       let (annot, { name; self_closing; attributes }) = elem in
-      let name' = this#jsx_name name in
+      let name' = this#jsx_element_name name in
       let attributes' = Base.List.map ~f:this#jsx_opening_attribute attributes in
       (this#on_loc_annot annot, { name = name'; self_closing; attributes = attributes' })
 
     method jsx_closing_element (elem : ('M, 'T) Ast.JSX.Closing.t) : ('N, 'U) Ast.JSX.Closing.t =
       let open Ast.JSX.Closing in
       let (annot, { name }) = elem in
-      let name' = this#jsx_name name in
+      let name' = this#jsx_element_name name in
       (this#on_loc_annot annot, { name = name' })
 
     method jsx_opening_attribute (jsx_attr : ('M, 'T) Ast.JSX.Opening.attribute)
@@ -1335,13 +1335,19 @@ class virtual ['M, 'T, 'N, 'U] mapper =
     method jsx_attribute (attr : ('M, 'T) Ast.JSX.Attribute.t) : ('N, 'U) Ast.JSX.Attribute.t =
       let open Ast.JSX.Attribute in
       let (annot, { name; value }) = attr in
-      let name' =
-        match name with
-        | Identifier id -> Identifier (this#jsx_identifier id)
-        | NamespacedName nname -> NamespacedName (this#jsx_namespaced_name nname)
-      in
+      let name' = this#jsx_attribute_name name in
       let value' = Base.Option.map ~f:this#jsx_attribute_value value in
       (this#on_loc_annot annot, { name = name'; value = value' })
+
+    method jsx_attribute_name (name : ('M, 'T) Ast.JSX.Attribute.name) =
+      let open Ast.JSX.Attribute in
+      match name with
+      | Identifier id -> Identifier (this#jsx_attribute_name_identifier id)
+      | NamespacedName nname -> NamespacedName (this#jsx_attribute_name_namespaced nname)
+
+    method jsx_attribute_name_identifier id = this#jsx_identifier id
+
+    method jsx_attribute_name_namespaced nname = this#jsx_namespaced_name nname
 
     method jsx_attribute_value (value : ('M, 'T) Ast.JSX.Attribute.value)
         : ('N, 'U) Ast.JSX.Attribute.value =
@@ -1387,12 +1393,20 @@ class virtual ['M, 'T, 'N, 'U] mapper =
       let comments' = Base.Option.map ~f:this#syntax comments in
       { expression = expression'; comments = comments' }
 
-    method jsx_name (name : ('M, 'T) Ast.JSX.name) : ('N, 'U) Ast.JSX.name =
+    method jsx_element_name (name : ('M, 'T) Ast.JSX.name) : ('N, 'U) Ast.JSX.name =
       let open Ast.JSX in
       match name with
-      | Identifier id -> Identifier (this#jsx_identifier id)
-      | NamespacedName namespaced_name -> NamespacedName (this#jsx_namespaced_name namespaced_name)
-      | MemberExpression member_exp -> MemberExpression (this#jsx_member_expression member_exp)
+      | Identifier id -> Identifier (this#jsx_element_name_identifier id)
+      | NamespacedName namespaced_name ->
+        NamespacedName (this#jsx_element_name_namespaced namespaced_name)
+      | MemberExpression member_exp ->
+        MemberExpression (this#jsx_element_name_member_expression member_exp)
+
+    method jsx_element_name_identifier ident = this#jsx_identifier ident
+
+    method jsx_element_name_namespaced ns = this#jsx_namespaced_name ns
+
+    method jsx_element_name_member_expression expr = this#jsx_member_expression expr
 
     method jsx_namespaced_name (namespaced_name : ('M, 'T) Ast.JSX.NamespacedName.t)
         : ('N, 'U) Ast.JSX.NamespacedName.t =
@@ -1416,11 +1430,13 @@ class virtual ['M, 'T, 'N, 'U] mapper =
       let open Ast.JSX.MemberExpression in
       match _object with
       | Identifier id ->
-        let id' = this#jsx_identifier id in
+        let id' = this#jsx_member_expression_identifier id in
         Identifier id'
       | MemberExpression nested_exp ->
         let nested_exp' = this#jsx_member_expression nested_exp in
         MemberExpression nested_exp'
+
+    method jsx_member_expression_identifier id = this#jsx_element_name_identifier id
 
     method jsx_identifier ((annot, id) : ('M, 'T) Ast.JSX.Identifier.t)
         : ('N, 'U) Ast.JSX.Identifier.t =
