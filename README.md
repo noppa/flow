@@ -34,7 +34,7 @@ just download my fork's built binary from the Releases page and point your
 editor to use that for LSP support.
 The easiest way to install the release is with npm
 ```sh
- npm i -g https://github.com/noppa/flow/releases/download/v0.142.0-autoimports.0/flow-bin-0.142.0.tgz
+ npm i -g https://github.com/noppa/flow/releases/download/v0.142.0-autoimports.1/flow-bin-0.142.0.tgz
  ```
  This will make your global `flow` command point to the fork. If you don't
  want to set the fork as your global Flow installation, you can always just
