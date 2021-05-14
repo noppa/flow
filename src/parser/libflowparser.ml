@@ -68,6 +68,8 @@ let convert_options opts =
         | "esproposal_optional_chaining" -> ({ opts with esproposal_optional_chaining = v }, tokens)
         | "esproposal_nullish_coalescing" ->
           ({ opts with esproposal_nullish_coalescing = v }, tokens)
+        | "esproposal_fsharp_pipeline_operator" ->
+          ({ opts with esproposal_fsharp_pipeline_operator = v }, tokens)
         | "types" -> ({ opts with types = v }, tokens)
         | "use_strict" -> ({ opts with use_strict = v }, tokens)
         | "tokens" -> (opts, v)
