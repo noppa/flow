@@ -71,6 +71,8 @@ let parse_options jsopts =
       bool_opt defaults.esproposal_optional_chaining jsopts "esproposal_optional_chaining";
     esproposal_nullish_coalescing =
       bool_opt defaults.esproposal_nullish_coalescing jsopts "esproposal_nullish_coalescing";
+    esproposal_fsharp_pipeline_operator =
+      bool_opt defaults.esproposal_fsharp_pipeline_operator jsopts "esproposal_fsharp_pipeline_operator";
     types = bool_opt defaults.types jsopts "types";
     use_strict = bool_opt defaults.use_strict jsopts "use_strict";
   }
